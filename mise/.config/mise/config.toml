@@ -1,0 +1,39 @@
+# Global mise config — applies on every machine.
+# Project-specific tool versions go into <project>/.mise.toml
+
+[env]
+# Let mise manage these paths so they're inserted in the correct
+# order relative to mise tool paths — no more manual PATH export needed.
+_.path = ["~/.local/bin","~/bin", "~/tools"]
+
+[tools]
+# --- Infrastructure ---
+terraform   = "latest"
+kind        = "latest"
+kubectl     = "latest"
+helm        = "latest"
+krew        = "latest"
+k9s         = "latest"
+kubectx     = "latest"
+kubens      = "latest"
+helm-docs   = "latest"
+kubelogin   = "latest"
+
+# --- Cloud ---
+# azure       = "latest"
+
+# --- Development ---
+node        = "lts"
+
+# --- Shell / Tools ---
+direnv      = "latest"   # Added: needed for 'eval "$(direnv hook zsh)"' in .zshrc
+fzf         = "latest"
+yq          = "latest"
+jq          = "latest"
+jqp         = "latest"   # jq playground TUI
+dotenvx     = "latest"
+usage       = "latest"   # Shell completion helper for mise
+
+# --- Misc ---
+qdns        = "latest"
+"github:s3tools/s3cmd" = "latest"

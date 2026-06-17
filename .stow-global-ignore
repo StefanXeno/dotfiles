@@ -1,0 +1,27 @@
+# Files that stow should NEVER try to symlink,
+# regardless of which package is being stowed.
+# Uses Perl regex syntax.
+
+# Version control
+\.git
+\.gitignore
+\.gitmodules
+
+# Project-level files (not part of any package)
+README\.md
+install\.sh
+LICENSE
+Makefile
+\.stow-global-ignore
+
+# Editor files
+\.DS_Store
+\.swp
+\.swo
+.*~
+
+# Docker / test infrastructure
+test
+docker-compose\.yml
+\.dockerignore
+Dockerfile

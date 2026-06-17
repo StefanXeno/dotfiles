@@ -1,0 +1,28 @@
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = true
+
+[character]
+success_symbol = '[λ](bold green)'
+error_symbol   = '[λ](bold red)'
+
+[status]
+disabled = false
+format   = '[$status]($style) '
+style    = 'red'
+
+[package]
+disabled = true
+
+# Shows the active mise-managed tool versions in the current directory.
+# Only appears when a .mise.toml or .tool-versions file is detected,
+# or when a tool-specific file is present (e.g. package.json, .python-version).
+[mise]
+format    = '[$version]($style) '
+style     = 'bold yellow'
+disabled  = false
+
+[kubernetes]
+disabled = false
+format   = '[$symbol ]($style)[$context( \($namespace\))]($style) '
+style    = 'cyan bold'

@@ -1,0 +1,42 @@
+# PUBLIC config — safe to commit.
+# Machine-specific values (email, signing key) live in ~/.gitconfig.local
+
+[credential]
+    # Cache HTTPS credentials for 8 hours (28800 seconds)
+    helper = cache --timeout=28800
+
+[push]
+    # Automatically set upstream when pushing a new branch
+    autoSetupRemote = true
+
+[commit]
+    # Sign all commits — key is defined in .gitconfig.local
+    gpgsign = true
+
+[tag]
+    # Sign all tags too
+    gpgsign = true
+
+[gpg]
+    # Use SSH keys for signing (modern approach, no GPG daemon needed)
+    format = ssh
+
+[gpg "ssh"]
+    # This file maps email addresses to their trusted public signing keys.
+    # Required for 'git log --show-signature' to work locally.
+    # Add one line per machine: "your@email.com ssh-ed25519 AAAA... key-comment"
+    allowedSignersFile = ~/.ssh/allowed_signers
+
+[core]
+    editor = vim
+
+[alias]
+    st   = status
+    lg   = log --oneline --graph --decorate --all
+    # Show which identity is active on this machine
+    whoami = !git config user.name && git config user.email
+
+[include]
+    # Load machine-specific config (email, signing key, proxies, etc.)
+    # This file is NOT tracked in git — must be created manually on each machine.
+    path = ~/.gitconfig.local

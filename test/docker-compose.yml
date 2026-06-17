@@ -1,0 +1,22 @@
+services:
+  dotfiles-test:
+    build:
+      context: ..
+      dockerfile: test/Dockerfile
+      args:
+        UBUNTU_VERSION: "24.04"
+        USERNAME: stefan
+        USER_UID: "1000"
+        USER_GID: "1000"
+
+    image: dotfiles-test:local
+
+    container_name: dotfiles-test
+    hostname: dotfiles-test-ubuntu
+
+    volumes:
+      - ..:/home/stefan/.dotfiles
+
+    stdin_open: true
+    tty: true
+    command: sleep infinity

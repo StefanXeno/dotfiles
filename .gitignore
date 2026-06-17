@@ -1,0 +1,23 @@
+# ---- Local override files (contain private/machine-specific config) ----
+*.local
+
+# ---- Secret/env files ----
+.env
+**/.env
+.shellsecrets
+**/.shellsecrets
+
+# ---- SSH (never ever commit these) ----
+**/.ssh/
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+**/.DS_Store
+
+# ---- Editor temp files ----
+*.swp
+*.swo
+*~
+.idea/
+.vscode/

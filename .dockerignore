@@ -1,0 +1,21 @@
+# Excludes files from the Docker build context.
+# Since our Dockerfile doesn't COPY anything, this mainly speeds up
+# the context transfer from host to Docker daemon.
+
+# Version control
+.git
+.gitignore
+
+# The test dir itself doesn't need to be in the build context
+# (it's already the Dockerfile's location)
+test/
+
+# OS junk
+.DS_Store
+**/.DS_Store
+
+# Editor files
+*.swp
+*.swo
+.idea/
+.vscode/
