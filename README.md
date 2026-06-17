@@ -1,1 +1,181 @@
-Coming soon! (famous last words)
+# dotfiles
+
+Personal dotfiles managed with [GNU Stow](https://www.gnu.org/software/stow/).
+Built for Ubuntu (WSL2 + native), themed with Dracula. 🧛
+
+I vibe coded my dotfiles. Let's see if this was a good idea... - StefanXeno
+
+## 🛠️ Stack
+
+| Tool | Purpose |
+|---|---|
+| [GNU Stow](https://www.gnu.org/software/stow/) | Symlink management |
+| [Oh My Zsh](https://ohmyz.sh/) | Zsh framework |
+| [Starship](https://starship.rs/) | Shell prompt |
+| [mise](https://mise.jdx.dev/) | Tool version management |
+| [tmux](https://github.com/tmux/tmux) + [TPM](https://github.com/tmux-plugins/tpm) | Terminal multiplexer |
+| [fzf](https://github.com/junegunn/fzf) | Fuzzy finder |
+
+## 📁 Structure
+
+```
+dotfiles/
+├── git/
+│   └── .gitconfig              # Public-safe base config (SSH signing, aliases)
+├── zsh/
+│   ├── .zshrc                  # Main shell config — sources .zshrc.local at the end
+│   └── .zsh/
+│       └── k9s-functions.zsh   # Custom k9s helper functions
+├── tmux/
+│   └── .tmux.conf
+├── starship/
+│   └── .config/
+│       └── starship.toml
+├── mise/
+│   └── .config/
+│       └── mise/
+│           └── config.toml
+├── test/                       # Docker-based test environment
+│   ├── Dockerfile
+│   ├── docker-compose.yml
+│   └── run.sh
+└── install.sh                  # Idempotent install script
+```
+
+Each top-level directory is a **Stow package** and can be installed independently:
+
+```bash
+stow --no-folding -t "$HOME" zsh     # install only zsh config
+stow -D -t "$HOME" zsh               # remove only zsh config
+```
+
+## 🚀 Fresh Machine Setup
+
+```bash
+git clone git@github.com:StefanXeno/dotfiles.git ~/dotfiles
+bash ~/dotfiles/install.sh
+```
+
+The install script handles:
+- APT packages (`zsh`, `tmux`, `stow`, `bat`, `fd-find`, ...)
+- Oh My Zsh + custom plugins
+- Stow symlinks for all packages
+- mise + all tools from `config.toml`
+- Starship
+- TPM (Tmux Plugin Manager)
+- Local config templates
+
+After install:
+
+```bash
+# 1. Fill in machine-specific git identity
+nano ~/.gitconfig.local
+
+# 2. Fill in private shell config
+nano ~/.zshrc.local
+
+# 3. Generate a signing key for this machine (see SSH Signing below)
+
+# 4. Start a new shell session
+exec zsh
+
+# 5. Install tmux plugins
+tmux
+# Inside tmux: prefix + I
+```
+
+## 🔐 Private / Machine-Specific Config
+
+Sensitive and machine-specific configuration is **never committed**.
+Two local override files are created automatically by `install.sh`:
+
+### `~/.gitconfig.local`
+```ini
+[user]
+    name       = Your Name
+    email      = your@email.com
+    signingkey = ~/.ssh/id_ed25519_signing_MACHINENAME.pub
+
+[author]
+    name  = Your Name
+    email = your@email.com
+```
+
+### `~/.zshrc.local`
+```zsh
+# Work aliases, API keys, proxy settings, etc.
+# export WORK_API_KEY=""
+# alias vpn="sudo openconnect vpn.company.com"
+```
+
+## 🔑 SSH Signing Setup
+
+Commits are signed with SSH keys. Each machine gets its own signing key
+so you can see in the git log where a commit was made from.
+
+```bash
+# Generate a signing key for this machine
+ssh-keygen -t ed25519 \
+  -C "username@machinename" \
+  -f ~/.ssh/id_ed25519_signing_MACHINENAME
+
+# Add to allowed_signers
+echo "your@email.com $(cat ~/.ssh/id_ed25519_signing_MACHINENAME.pub)" \
+  >> ~/.ssh/allowed_signers
+
+# Add the public key to GitHub:
+# Settings → SSH and GPG keys → New signing key
+```
+
+Verify signing works:
+```bash
+git commit --allow-empty -m "test: verify SSH signing"
+git log --show-signature -1
+```
+
+## 🧪 Testing
+
+A Docker-based test environment is included so you can test changes
+before applying them to a real machine:
+
+```bash
+# Full end-to-end test
+./test/run.sh install
+
+# Drop into zsh after successful install
+./test/run.sh shell
+
+# Debug with bash
+./test/run.sh bash
+
+# Force rebuild without cache
+./test/run.sh rebuild
+
+# Nuke everything and start fresh
+./test/run.sh reset
+```
+
+## 📦 Adding a New Tool
+
+```bash
+# 1. Create a stow package directory
+mkdir -p ~/dotfiles/newtool
+
+# 2. Move the config file into the package
+mv ~/.newtoolrc ~/dotfiles/newtool/.newtoolrc
+
+# 3. Create the symlink via stow
+cd ~/dotfiles && stow --no-folding -t "$HOME" newtool
+
+# 4. Commit
+git add . && git commit -m "feat: add newtool config"
+```
+
+## 🔄 Updating
+
+```bash
+cd ~/dotfiles
+git pull
+# Re-stow if new files were added
+stow --no-folding -t "$HOME" zsh   # example
+```
