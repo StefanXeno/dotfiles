@@ -15,8 +15,7 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=#6272a4"
 # History timestamp format
 HIST_STAMPS="dd.mm.yyyy"
 
-# OMZ Plugins:
-# - 'fzf' plugin handles key bindings (Ctrl+R, Ctrl+T, Alt+C) via $FZF_BASE
+# OMZ Plugins
 plugins=(
     autoupdate          # Auto-updates OMZ custom plugins (external, cloned by install.sh)
     colored-man-pages   # Colorize man pages
@@ -56,9 +55,8 @@ ZSH_COLORIZE_STYLE="colorful"
 # FZF CONFIGURATION
 # ============================================================
 
-# fzf shell integration — modern approach (fzf 0.48+)
-# Loads key bindings (Ctrl+R, Ctrl+T, Alt+C) and completions directly
-eval "$(fzf --zsh)"
+# fzf shell integration is loaded after 'mise activate' (see bottom of file)
+# so the mise-managed fzf binary is on PATH first.
 
 # Dracula color scheme for fzf
 export FZF_DEFAULT_OPTS="
@@ -136,10 +134,6 @@ command -v kubectl &>/dev/null && source <(kubectl completion zsh)
 command -v helm    &>/dev/null && source <(helm completion zsh)
 command -v docker  &>/dev/null && source <(docker completion zsh)
 
-# fzf shell integration — sourced directly from mise install path
-[[ -f "$(mise where fzf)/shell/key-bindings.zsh"  ]] && source "$(mise where fzf)/shell/key-bindings.zsh"
-[[ -f "$(mise where fzf)/shell/completion.zsh"    ]] && source "$(mise where fzf)/shell/completion.zsh"
-
 alias sl="sl -alFe"
 
 # --- Docker ---
@@ -157,9 +151,6 @@ alias hdoc="helm-docs"
 # ============================================================
 # TOOL INTEGRATIONS
 # ============================================================
-
-# direnv — watches for .envrc files and loads/unloads env vars automatically
-eval "$(direnv hook zsh)"
 
 # Load custom k9s shell functions (file managed via stow alongside this .zshrc)
 [[ -f ~/.zsh/k9s-functions.zsh ]] && source ~/.zsh/k9s-functions.zsh
@@ -194,3 +185,9 @@ autoload -U +X bashcompinit && bashcompinit
 # ============================================================
 
 eval "$(mise activate zsh)"
+
+# direnv — watches for .envrc files and loads/unloads env vars automatically
+eval "$(direnv hook zsh)"
+
+# fzf shell integration (fzf 0.48+) — key bindings (Ctrl+R, Ctrl+T, Alt+C)
+command -v fzf &>/dev/null && eval "$(fzf --zsh)"
