@@ -17,7 +17,14 @@ BACKUP_DIR="$HOME/.dotfiles_backup_$(date +%Y%m%d_%H%M%S)"
 # OMZ custom plugins to clone (name → git URL)
 declare -A OMZ_CUSTOM_PLUGINS=(
     ["zsh-autosuggestions"]="https://github.com/zsh-users/zsh-autosuggestions"
+    ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting"
     ["autoupdate"]="https://github.com/TamCore/autoupdate-oh-my-zsh-plugins"
+)
+
+# Pin plugin versions for reproducible installs (empty = latest)
+declare -A OMZ_CUSTOM_PLUGIN_REFS=(
+    ["zsh-autosuggestions"]="v0.7.1"
+    ["zsh-syntax-highlighting"]="0.8.0"
 )
 
 # Stow packages to install (= top-level directories in this repo)
@@ -122,7 +129,6 @@ install_omz() {
         log "Oh-My-Zsh installed."
     else
         err "Oh-My-Zsh directory not found after install — something went wrong."
-        exit 1
     fi
 }
 
@@ -138,12 +144,23 @@ install_omz_plugins() {
         local plugin_url="${OMZ_CUSTOM_PLUGINS[$plugin_name]}"
         local plugin_dir="$custom_plugins_dir/$plugin_name"
 
+        local plugin_ref="${OMZ_CUSTOM_PLUGIN_REFS[$plugin_name]:-}"
+
         if [[ -d "$plugin_dir" ]]; then
-            info "Plugin '$plugin_name' already installed — pulling latest..."
-            git -C "$plugin_dir" pull --quiet
+            info "Plugin '$plugin_name' already installed — updating..."
+            git -C "$plugin_dir" fetch --quiet origin
+            if [[ -n "$plugin_ref" ]]; then
+                git -C "$plugin_dir" checkout --quiet "$plugin_ref"
+            else
+                git -C "$plugin_dir" pull --quiet
+            fi
         else
             info "Installing plugin: $plugin_name"
-            git clone --depth=1 "$plugin_url" "$plugin_dir"
+            if [[ -n "$plugin_ref" ]]; then
+                git clone --depth=1 --branch "$plugin_ref" "$plugin_url" "$plugin_dir"
+            else
+                git clone --depth=1 "$plugin_url" "$plugin_dir"
+            fi
         fi
     done
 
@@ -171,7 +188,6 @@ install_mise() {
         info "  → $tool"
         if ! mise install "$tool"; then
             err "Failed to install core tool: $tool — cannot continue."
-            exit 1
         fi
     done
     log "Core tools installed."
@@ -278,9 +294,9 @@ create_local_templates() {
 # export HTTPS_PROXY=""
 # export NO_PROXY="localhost,127.0.0.1"
 EOF
-        log "Created ~/.zshrc.local"
+        log "Created ${HOME}/.zshrc.local"
     else
-        log "~/.zshrc.local already exists — skipping."
+        log "${HOME}/.zshrc.local already exists — skipping."
     fi
 
     # .gitconfig.local — private git config
@@ -300,9 +316,9 @@ EOF
     # See README.md for how to generate a per-machine SSH signing key.
     signingkey = ~/.ssh/id_ed25519_signing_MACHINENAME.pub
 EOF
-        log "Created ~/.gitconfig.local"
+        log "Created ${HOME}/.gitconfig.local"
     else
-        log "~/.gitconfig.local already exists — skipping."
+        log "${HOME}/.gitconfig.local already exists — skipping."
     fi
 
     # ~/.ssh/allowed_signers — required for local signature verification
