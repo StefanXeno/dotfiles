@@ -37,3 +37,4 @@ usage       = "latest"   # Shell completion helper for mise
 # --- Misc ---
 qdns        = "latest"
 "github:s3tools/s3cmd" = "latest"
+azure = "latest"
