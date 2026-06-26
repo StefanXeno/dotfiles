@@ -1,10 +1,10 @@
-#!/usr/bin/env zsh
+# shellcheck shell=bash
 #
 # K9S Node Shell Feature Gate Management
-# 
+#
 # This script provides two utility functions to easily enable and disable
 # the K9S Node Shell feature gate environment variable.
-# 
+#
 # Functions:
 #   k9s-node-shell-on  - Sets K9S_FEATURE_GATE_NODE_SHELL=true
 #   k9s-node-shell-off - Unsets K9S_FEATURE_GATE_NODE_SHELL
