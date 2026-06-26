@@ -145,9 +145,11 @@ case "${1:-help}" in
         # '--rmi all' removes all images tied to this compose project —
         # no need to guess the image name.
         info "Destroying container and image..."
-        docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans --rmi all \
-            && log "Done." \
-            || warn "Nothing to remove (already clean)."
+        if docker compose -f "$COMPOSE_FILE" down --volumes --remove-orphans --rmi all; then
+            log "Done."
+        else
+            warn "Nothing to remove (already clean)."
+        fi
 
         docker builder prune -f --filter "until=1h" 2>/dev/null || true
         log "Clean slate. Run './test/run.sh install' to start fresh."
