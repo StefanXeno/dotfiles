@@ -23,8 +23,12 @@ dotfiles/
 ├── git/
 │   └── .gitconfig              # Public-safe base config (SSH signing, aliases)
 ├── zsh/
-│   ├── .zshrc                  # Main shell config — sources .zshrc.local at the end
+│   ├── .zshrc                  # Shell orchestrator — sources ~/.zsh/*.zsh modules
 │   └── .zsh/
+│       ├── options.zsh         # History, shell options, environment
+│       ├── fzf.zsh             # fzf defaults and key-binding options
+│       ├── aliases.zsh         # Aliases and kubectl wrapper (`k`)
+│       ├── completions.zsh     # Lazy-loaded tool completions
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
 │   └── .tmux.conf
@@ -69,10 +73,10 @@ After install:
 
 ```bash
 # 1. Fill in machine-specific git identity
-nano ~/.gitconfig.local
+vim ~/.gitconfig.local
 
 # 2. Fill in private shell config
-nano ~/.zshrc.local
+vim ~/.zshrc.local
 
 # 3. Generate a signing key for this machine (see SSH Signing below)
 
