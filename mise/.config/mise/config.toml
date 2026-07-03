@@ -20,7 +20,7 @@ helm-docs   = "latest"
 kubelogin   = "latest"
 
 # --- Cloud ---
-# azure       = "latest"
+azure       = "latest"
 
 # --- Development ---
 node        = "lts"
@@ -37,4 +37,4 @@ usage       = "latest"   # Shell completion helper for mise
 # --- Misc ---
 qdns        = "latest"
 "github:s3tools/s3cmd" = "latest"
-azure = "latest"
+pipx = "latest"

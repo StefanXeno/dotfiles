@@ -14,6 +14,9 @@ style    = 'red'
 [package]
 disabled = true
 
+[java]
+disabled = true
+
 # Shows the active mise-managed tool versions in the current directory.
 # Only appears when a .mise.toml or .tool-versions file is detected,
 # or when a tool-specific file is present (e.g. package.json, .python-version).
