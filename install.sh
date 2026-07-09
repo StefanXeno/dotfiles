@@ -26,6 +26,9 @@ declare -A OMZ_CUSTOM_PLUGIN_REFS=(
     ["zsh-syntax-highlighting"]="0.8.0"
 )
 
+# Pin OMZ core for reproducible installs (ohmyzsh/ohmyzsh commit SHA)
+OMZ_REF="677a4592b18c08ddea737f8aca70bac0e9fc9313"
+
 # TPM plugins (directory name under ~/.tmux/plugins/ → git URL)
 declare -A TPM_PLUGINS=(
     ["tpm"]="https://github.com/tmux-plugins/tpm"
@@ -141,14 +144,14 @@ install_omz() {
         return
     fi
 
-    info "Installing Oh-My-Zsh..."
+    info "Installing Oh-My-Zsh (ref: ${OMZ_REF})..."
 
-    # The OMZ installer internally calls 'chsh' to change the default shell.
+    # Use the install script from the pinned ref; BRANCH selects the cloned commit.
     # In Docker containers, chsh can fail because PAM is not fully configured.
     # We use '|| true' to treat a non-zero exit as a warning, not a fatal error.
     # The shell change is handled separately by set_default_shell() anyway.
-    KEEP_ZSHRC=yes sh -c \
-        "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" \
+    BRANCH="${OMZ_REF}" KEEP_ZSHRC=yes sh -c \
+        "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/${OMZ_REF}/tools/install.sh")" \
         "" --unattended \
         || warn "OMZ installer exited non-zero (likely a chsh issue in Docker — this is fine)"
 

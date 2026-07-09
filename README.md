@@ -25,12 +25,14 @@ dotfiles/
 ├── zsh/
 │   ├── .zshrc                  # Shell orchestrator — sources ~/.zsh/*.zsh modules
 │   ├── bin/
-│   │   └── notify-send         # WSL/Linux notify-send shim (on PATH via ~/bin)
+│   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Alt+H
+│   │   └── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
 │       ├── aliases.zsh         # Aliases and kubectl wrapper (`k`)
 │       ├── tmux.zsh            # tmux helpers: ta, tn, tl
+│       ├── cheatsheets.zsh     # cs / cso / Alt+H cheatsheet search
 │       ├── completions.zsh     # Lazy-loaded tool completions
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
@@ -108,10 +110,12 @@ vim ~/.zshrc.local
 # 4. Start a new shell session
 exec zsh
 
-# 5. Install tmux plugins
+# 5. Open tmux — plugins are pre-installed by install.sh (prefix + U to update)
 tmux
-# Plugins are pre-installed by install.sh; use prefix + U to update to latest
 ```
+
+Cheatsheets (`cs` / `Alt+H`) read from `docs/cheatsheets/` in the dotfiles clone.
+`install.sh` sets `DOTFILES_DIR` in `~/.zshrc.local`; override if your clone lives elsewhere.
 
 ## 🔐 Private / Machine-Specific Config
 
@@ -231,6 +235,16 @@ Custom plugins are **pinned** in `install.sh` → `OMZ_CUSTOM_PLUGIN_REFS` and c
 
 ```bash
 # Bump the pin in install.sh, then re-run install (or git -C the plugin dir checkout)
+bash ~/dotfiles/install.sh
+```
+
+### Updating pinned Oh My Zsh core
+
+OMZ itself is **pinned** in `install.sh` → `OMZ_REF` (commit SHA on `ohmyzsh/ohmyzsh`).
+
+```bash
+# Bump OMZ_REF in install.sh, remove ~/.oh-my-zsh, then re-run install
+rm -rf ~/.oh-my-zsh
 bash ~/dotfiles/install.sh
 ```
 

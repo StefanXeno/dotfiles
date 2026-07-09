@@ -92,8 +92,8 @@ verify_dotfiles_stack() {
         [[ "$row_count" -gt 0 ]] || { echo "cheatsheet parser produced no rows" >&2; exit 1; }
         echo "cheatsheet parser rows: $row_count"
 
-        # zsh must load cheatsheet helpers after install (non-interactive: no zle/fzf key bindings)
-        zsh -lc "whence -w cs cso ta tn tl" >/dev/null
+        # zsh must load cheatsheet helpers after install
+        zsh -lic "whence -w cs cso ta tn tl" >/dev/null
 
         echo "dotfiles stack OK"
     '; then

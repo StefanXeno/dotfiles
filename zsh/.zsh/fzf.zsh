@@ -41,7 +41,7 @@ export FZF_CTRL_R_OPTS="
 export FZF_CTRL_T_OPTS="
 --prompt='🗂️ Files: '
 --header='📁 File Search - Use Tab for Multi-Select'
---preview 'if [ -d {} ]; then tree -C {} | head -200; else bat --color=always --style=numbers --line-range=:500 {} 2>/dev/null || cat {}; fi'
+--preview 'if [ -d {} ]; then tree -C {} | head -200; elif command -v bat >/dev/null 2>&1; then bat --color=always --style=numbers --line-range=:500 {}; elif command -v batcat >/dev/null 2>&1; then batcat --color=always --style=numbers --line-range=:500 {}; else cat {}; fi'
 --preview-window right:50%
 --bind 'ctrl-/:toggle-preview'
 --bind 'focus:preview-top'
