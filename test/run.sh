@@ -37,19 +37,20 @@ _docker_exec() {
 verify_tmux() {
     section "Verifying tmux"
 
-    if ! _docker_exec '
-        set -euo pipefail
+    if ! _docker_exec "$(cat <<'VERIFY'
+set -euo pipefail
 
-        echo -n "tmux version: "
-        tmux -V
+echo -n "tmux version: "
+tmux -V
 
-        [[ -f "$HOME/.tmux.conf" ]] || { echo "missing ~/.tmux.conf" >&2; exit 1; }
+[[ -f "$HOME/.tmux.conf" ]] || { echo "missing ~/.tmux.conf" >&2; exit 1; }
 
-        # Parse config and list bindings — fails on syntax errors without a session
-        tmux -f "$HOME/.tmux.conf" list-keys -N >/dev/null
+# Parse config and list bindings — fails on syntax errors without a session
+tmux -f "$HOME/.tmux.conf" list-keys -N >/dev/null
 
-        echo "tmux config syntax OK"
-    '; then
+echo "tmux config syntax OK"
+VERIFY
+)"; then
         err "tmux verification failed."
         return 1
     fi
@@ -60,43 +61,44 @@ verify_tmux() {
 verify_dotfiles_stack() {
     section "Verifying dotfiles stack"
 
-    if ! _docker_exec '
-        set -euo pipefail
+    if ! _docker_exec "$(cat <<'VERIFY'
+set -euo pipefail
 
-        export DOTFILES_DIR="$HOME/dotfiles"
-        export PATH="$HOME/.local/bin:$PATH"
-        eval "$(mise activate bash)"
+export DOTFILES_DIR="$HOME/dotfiles"
+export PATH="$HOME/.local/bin:$PATH"
+eval "$(mise activate bash)"
 
-        echo -n "starship version: "
-        starship --version
+echo -n "starship version: "
+starship --version
 
-        echo -n "mise tools: "
-        mise ls
+echo -n "mise tools: "
+mise ls
 
-        command -v fzf >/dev/null
-        command -v direnv >/dev/null
+command -v fzf >/dev/null
+command -v direnv >/dev/null
 
-        # Cheatsheet parser must emit at least one TSV row from tracked markdown
-        cs_dir="$DOTFILES_DIR/docs/cheatsheets"
-        awk_script="$DOTFILES_DIR/zsh/bin/cs-parse-cheatsheets.awk"
-        [[ -d "$cs_dir" ]] || { echo "missing cheatsheets dir: $cs_dir" >&2; exit 1; }
-        [[ -f "$awk_script" ]] || { echo "missing awk parser: $awk_script" >&2; exit 1; }
+# Cheatsheet parser must emit at least one TSV row from tracked markdown
+cs_dir="$DOTFILES_DIR/docs/cheatsheets"
+awk_script="$DOTFILES_DIR/zsh/bin/cs-parse-cheatsheets.awk"
+[[ -d "$cs_dir" ]] || { echo "missing cheatsheets dir: $cs_dir" >&2; exit 1; }
+[[ -f "$awk_script" ]] || { echo "missing awk parser: $awk_script" >&2; exit 1; }
 
-        row_count=0
-        for f in "$cs_dir"/*.md; do
-            [[ -f "$f" ]] || continue
-            sheet=$(basename "$f" .md)
-            n=$(awk -v sheet="$sheet" -v file="$f" -f "$awk_script" "$f" | wc -l)
-            row_count=$((row_count + n))
-        done
-        [[ "$row_count" -gt 0 ]] || { echo "cheatsheet parser produced no rows" >&2; exit 1; }
-        echo "cheatsheet parser rows: $row_count"
+row_count=0
+for f in "$cs_dir"/*.md; do
+    [[ -f "$f" ]] || continue
+    sheet=$(basename "$f" .md)
+    n=$(awk -v sheet="$sheet" -v file="$f" -f "$awk_script" "$f" | wc -l)
+    row_count=$((row_count + n))
+done
+[[ "$row_count" -gt 0 ]] || { echo "cheatsheet parser produced no rows" >&2; exit 1; }
+echo "cheatsheet parser rows: $row_count"
 
-        # zsh must load cheatsheet helpers after install
-        zsh -lic "whence -w cs cso ta tn tl" >/dev/null
+# zsh must load cheatsheet helpers after install
+zsh -lic "whence -w cs cso ta tn tl" >/dev/null
 
-        echo "dotfiles stack OK"
-    '; then
+echo "dotfiles stack OK"
+VERIFY
+)"; then
         err "dotfiles stack verification failed."
         return 1
     fi
