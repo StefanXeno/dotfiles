@@ -146,16 +146,19 @@ install_omz() {
 
     info "Installing Oh-My-Zsh (ref: ${OMZ_REF})..."
 
-    # Use the install script from the pinned ref; BRANCH selects the cloned commit.
-    # In Docker containers, chsh can fail because PAM is not fully configured.
-    # We use '|| true' to treat a non-zero exit as a warning, not a fatal error.
-    # The shell change is handled separately by set_default_shell() anyway.
-    BRANCH="${OMZ_REF}" KEEP_ZSHRC=yes sh -c \
-        "$(curl -fsSL "https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/${OMZ_REF}/tools/install.sh")" \
-        "" --unattended \
-        || warn "OMZ installer exited non-zero (likely a chsh issue in Docker — this is fine)"
+    local omz_dir="$HOME/.oh-my-zsh"
+    local omz_url="https://github.com/ohmyzsh/ohmyzsh.git"
 
-    if [[ -d "$HOME/.oh-my-zsh" ]]; then
+    # Pin via shallow fetch — the upstream install.sh only accepts branch/tag names
+    # in BRANCH, not arbitrary commit SHAs.
+    git init "$omz_dir"
+    git -C "$omz_dir" remote add origin "$omz_url"
+    if ! git -C "$omz_dir" fetch --depth 1 origin "$OMZ_REF"; then
+        err "Failed to fetch oh-my-zsh at ref: ${OMZ_REF}"
+    fi
+    git -C "$omz_dir" checkout --quiet FETCH_HEAD
+
+    if [[ -d "$omz_dir" ]]; then
         log "Oh-My-Zsh installed."
     else
         err "Oh-My-Zsh directory not found after install — something went wrong."
