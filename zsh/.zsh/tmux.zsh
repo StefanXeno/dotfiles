@@ -48,6 +48,7 @@ tl() {
 }
 
 # New session (attach if name already exists). Default name: basename of $PWD.
+# shellcheck disable=SC2120 # $1 is optional; default is derived from $PWD
 tn() {
     local name="${1:-$(_tmux_session_name)}"
     if tmux has-session -t "$name" 2>/dev/null; then

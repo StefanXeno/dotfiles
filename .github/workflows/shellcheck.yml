@@ -5,11 +5,13 @@ on:
     paths:
       - '**.sh'
       - '**.zsh'
+      - 'zsh/bin/notify-send'
       - '.github/workflows/shellcheck.yml'
   pull_request:
     paths:
       - '**.sh'
       - '**.zsh'
+      - 'zsh/bin/notify-send'
       - '.github/workflows/shellcheck.yml'
 
 jobs:
@@ -27,5 +29,10 @@ jobs:
         run: |
           shellcheck -x -s bash \
             zsh/.zsh/aliases.zsh \
+            zsh/.zsh/cheatsheets.zsh \
             zsh/.zsh/fzf.zsh \
-            zsh/.zsh/k9s-functions.zsh
+            zsh/.zsh/k9s-functions.zsh \
+            zsh/.zsh/tmux.zsh
+
+      - name: Run shellcheck on notify-send shim
+        run: shellcheck -x zsh/bin/notify-send

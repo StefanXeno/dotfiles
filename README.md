@@ -225,6 +225,15 @@ mise install
 mise upgrade jqp dotenvx qdns pipx
 ```
 
+### Updating pinned OMZ custom plugins
+
+Custom plugins are **pinned** in `install.sh` → `OMZ_CUSTOM_PLUGIN_REFS` and cloned during install.
+
+```bash
+# Bump the pin in install.sh, then re-run install (or git -C the plugin dir checkout)
+bash ~/dotfiles/install.sh
+```
+
 ### Updating pinned TPM plugins
 
 tmux plugins are **pinned** in `install.sh` → `TPM_PLUGIN_REFS` and cloned during install.

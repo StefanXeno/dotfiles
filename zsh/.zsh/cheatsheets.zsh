@@ -55,7 +55,7 @@ _cs_cache_stale() {
 _cs_build_cache() {
     local dir="$1" tmp
     mkdir -p "${_CS_CACHE%/*}" || return 1
-    tmp="${_CS_CACHE}.tmp.${$}"
+    tmp="${_CS_CACHE}.tmp.$$"
     _cs_parse_entries "$dir" >"$tmp" || {
         rm -f "$tmp"
         return 1
@@ -78,7 +78,7 @@ _cs_warm_cache() {
     local dir
     dir="$(_cs_dir)" || return 0
     if _cs_cache_stale "$dir"; then
-        (_cs_build_cache "$dir") &|
+        _cs_build_cache "$dir" &
     fi
 }
 
@@ -128,6 +128,7 @@ _cs_pick() {
 cs() {
     local run_cmd
     run_cmd="$(_cs_pick "${1:-}")" || return 1
+    # shellcheck disable=SC3037 # print -z is zsh-only (insert into edit buffer)
     print -z -- "$run_cmd"
 }
 
@@ -167,6 +168,7 @@ cso() {
 }
 
 # Alt+H — fzf cheatsheet search (same family as Ctrl+R / Ctrl+T / Alt+C).
+# shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
 _fzf_cheatsheet_widget() {
     local run_cmd
     run_cmd="$(_cs_pick)" || {
@@ -174,11 +176,12 @@ _fzf_cheatsheet_widget() {
         return
     }
     LBUFFER=$run_cmd
+    # shellcheck disable=SC2034 # CURSOR is read by zle after this assignment
     CURSOR=${#LBUFFER}
     zle reset-prompt
 }
 
-if [[ -o zle ]]; then
+if [[ -o interactive && -t 0 && -o zle ]]; then
     zle -N _fzf_cheatsheet_widget
     bindkey '\eh' _fzf_cheatsheet_widget
 fi

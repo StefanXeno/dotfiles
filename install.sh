@@ -18,7 +18,6 @@ BACKUP_DIR="$HOME/.dotfiles_backup_$(date +%Y%m%d_%H%M%S)"
 declare -A OMZ_CUSTOM_PLUGINS=(
     ["zsh-autosuggestions"]="https://github.com/zsh-users/zsh-autosuggestions"
     ["zsh-syntax-highlighting"]="https://github.com/zsh-users/zsh-syntax-highlighting"
-    ["autoupdate"]="https://github.com/TamCore/autoupdate-oh-my-zsh-plugins"
 )
 
 # Pin plugin versions for reproducible installs (empty = latest)
@@ -68,13 +67,22 @@ is_wsl()          { grep -qi microsoft /proc/version 2>/dev/null; }
 is_docker() { [[ -f /.dockerenv ]]; }
 command_exists()  { command -v "$1" &>/dev/null; }
 
-# Backup a file/dir if it exists and is not already a symlink
+# Backup a file/dir if it exists and is not already a symlink.
+# Preserves paths relative to $HOME so e.g. ~/.config/mise/config.toml does not
+# collide with another file named config.toml from a different directory.
 backup_if_exists() {
-    local target="$1"
+    local target="$1" rel backup_dest
     if [[ -e "$target" && ! -L "$target" ]]; then
-        mkdir -p "$BACKUP_DIR"
-        warn "Backing up: $target → $BACKUP_DIR/"
-        cp -r "$target" "$BACKUP_DIR/"
+        if [[ "$target" == "$HOME"/* ]]; then
+            rel="${target#"$HOME"/}"
+        else
+            # Fallback for targets outside $HOME (should not happen via stow)
+            rel="${target#/}"
+        fi
+        backup_dest="$BACKUP_DIR/$rel"
+        mkdir -p "$(dirname "$backup_dest")"
+        warn "Backing up: $target → $backup_dest"
+        cp -r "$target" "$backup_dest"
         rm -rf "$target"
     fi
 }

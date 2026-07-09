@@ -28,11 +28,16 @@ image_exists() {
 
 # ── Verification ─────────────────────────────────────────────────────────────
 
+# Run a command inside the container; shared by all verify_* helpers.
+_docker_exec() {
+    docker compose -f "$COMPOSE_FILE" exec -T dotfiles-test bash -c "$1"
+}
+
 # Post-install smoke checks run inside the container (no image rebuild).
 verify_tmux() {
     section "Verifying tmux"
 
-    if ! docker compose -f "$COMPOSE_FILE" exec dotfiles-test bash -c '
+    if ! _docker_exec '
         set -euo pipefail
 
         echo -n "tmux version: "
@@ -50,6 +55,58 @@ verify_tmux() {
     fi
 
     log "tmux verification passed."
+}
+
+verify_dotfiles_stack() {
+    section "Verifying dotfiles stack"
+
+    if ! _docker_exec '
+        set -euo pipefail
+
+        export DOTFILES_DIR="$HOME/dotfiles"
+        export PATH="$HOME/.local/bin:$PATH"
+        eval "$(mise activate bash)"
+
+        echo -n "starship version: "
+        starship --version
+
+        echo -n "mise tools: "
+        mise ls
+
+        command -v fzf >/dev/null
+        command -v direnv >/dev/null
+
+        # Cheatsheet parser must emit at least one TSV row from tracked markdown
+        cs_dir="$DOTFILES_DIR/docs/cheatsheets"
+        awk_script="$DOTFILES_DIR/zsh/bin/cs-parse-cheatsheets.awk"
+        [[ -d "$cs_dir" ]] || { echo "missing cheatsheets dir: $cs_dir" >&2; exit 1; }
+        [[ -f "$awk_script" ]] || { echo "missing awk parser: $awk_script" >&2; exit 1; }
+
+        row_count=0
+        for f in "$cs_dir"/*.md; do
+            [[ -f "$f" ]] || continue
+            sheet=$(basename "$f" .md)
+            n=$(awk -v sheet="$sheet" -v file="$f" -f "$awk_script" "$f" | wc -l)
+            row_count=$((row_count + n))
+        done
+        [[ "$row_count" -gt 0 ]] || { echo "cheatsheet parser produced no rows" >&2; exit 1; }
+        echo "cheatsheet parser rows: $row_count"
+
+        # zsh must load cheatsheet helpers after install (non-interactive: no zle/fzf key bindings)
+        zsh -lc "whence -w cs cso ta tn tl" >/dev/null
+
+        echo "dotfiles stack OK"
+    '; then
+        err "dotfiles stack verification failed."
+        return 1
+    fi
+
+    log "dotfiles stack verification passed."
+}
+
+verify_install() {
+    verify_tmux || return 1
+    verify_dotfiles_stack || return 1
 }
 
 # ── Actions ──────────────────────────────────────────────────────────────────
@@ -112,7 +169,7 @@ case "${1:-help}" in
         if [[ $install_exit_code -eq 0 ]]; then
             log "install.sh completed successfully!"
 
-            verify_tmux || install_exit_code=$?
+            verify_install || install_exit_code=$?
 
             if [[ $install_exit_code -ne 0 ]]; then
                 err "Post-install verification failed."

@@ -17,7 +17,6 @@ HIST_STAMPS="dd.mm.yyyy"
 
 # OMZ Plugins
 plugins=(
-    autoupdate              # Auto-updates OMZ custom plugins (external, cloned by install.sh)
     colored-man-pages       # Colorize man pages
     sudo                    # Press ESC twice to prepend 'sudo' to last command
     zsh-autosuggestions     # Fish-like command suggestions (external, cloned by install.sh)
@@ -72,7 +71,10 @@ eval "$(mise activate zsh)"
 eval "$(direnv hook zsh)"
 
 # fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Alt+H → cheatsheets.zsh)
-command -v fzf &>/dev/null && eval "$(fzf --zsh)"
+# Requires a TTY — skip in scripts/CI (avoids "can't change option: zle").
+if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
+    eval "$(fzf --zsh)"
+fi
 
 # ============================================================
 # PROMPT

@@ -10,7 +10,9 @@ For commands and aliases, see [zsh Cheatsheet](cheatsheets/zsh-fzf.md).
 | `zsh-syntax-highlighting` | Colors valid/invalid commands as you type |
 | `sudo` | Press `Esc` twice to prepend `sudo` to the last command |
 | `colored-man-pages` | Syntax-colored man pages |
-| `autoupdate` | Auto-updates OMZ custom plugins |
+
+Custom plugins (`zsh-autosuggestions`, `zsh-syntax-highlighting`) are pinned in `install.sh`.
+Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 
 ## Shell Options (from `options.zsh`)
 
