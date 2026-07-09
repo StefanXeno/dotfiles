@@ -15,7 +15,7 @@ services:
     hostname: dotfiles-test-ubuntu
 
     volumes:
-      - ..:/home/stefan/.dotfiles
+      - ..:/home/stefan/dotfiles
 
     stdin_open: true
     tty: true

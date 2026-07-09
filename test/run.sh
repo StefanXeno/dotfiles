@@ -79,7 +79,7 @@ case "${1:-help}" in
         section "Running install.sh"
 
         docker compose -f "$COMPOSE_FILE" exec dotfiles-test \
-            bash /home/stefan/.dotfiles/install.sh
+            bash /home/stefan/dotfiles/install.sh
         install_exit_code=$?
 
         echo ""
@@ -94,7 +94,7 @@ case "${1:-help}" in
             warn "Dropping into bash for debugging..."
             echo ""
             warn "Useful commands:"
-            warn "  bash ~/.dotfiles/install.sh   → retry install manually"
+            warn "  bash ~/dotfiles/install.sh   → retry install manually"
             warn "  apt list --installed          → check installed packages"
             warn "  cat /tmp/install.log          → if you piped output there"
             echo ""

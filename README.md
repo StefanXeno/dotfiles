@@ -24,6 +24,8 @@ dotfiles/
 │   └── .gitconfig              # Public-safe base config (SSH signing, aliases)
 ├── zsh/
 │   ├── .zshrc                  # Shell orchestrator — sources ~/.zsh/*.zsh modules
+│   ├── bin/
+│   │   └── notify-send         # WSL/Linux notify-send shim (on PATH via ~/bin)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
@@ -32,6 +34,11 @@ dotfiles/
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
 │   └── .tmux.conf
+├── docs/
+│   └── cheatsheets/
+│       ├── tmux.md             # tmux key binding reference
+│       ├── zsh-fzf.md          # zsh aliases, fzf bindings, OMZ plugins
+│       └── git.md              # git aliases and SSH signing
 ├── starship/
 │   └── .config/
 │       └── starship.toml
@@ -52,6 +59,12 @@ Each top-level directory is a **Stow package** and can be installed independentl
 stow --no-folding -t "$HOME" zsh     # install only zsh config
 stow -D -t "$HOME" zsh               # remove only zsh config
 ```
+
+## 📖 Cheatsheets
+
+- [tmux](docs/cheatsheets/tmux.md) — key bindings, plugins, copy mode
+- [zsh & fzf](docs/cheatsheets/zsh-fzf.md) — aliases, fzf bindings, OMZ plugins
+- [git](docs/cheatsheets/git.md) — aliases, SSH signing setup
 
 ## 🚀 Fresh Machine Setup
 

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# notify-send wrapper — native Linux libnotify, or Windows toasts on WSL.
+# tmux-notify and other tools call notify-send on PATH; ~/bin comes first via mise.
+#
+# WSL: prefers wsl-notify-send.exe (installed by install.sh). Inline PowerShell
+# toasts often fail under WSL's Constrained Language Mode.
+
+set -euo pipefail
+
+# Skip notify-send options (tmux-notify may pass -u, -t, etc.)
+while [[ $# -gt 0 && "$1" == -* ]]; do
+    case "$1" in
+        -u|--urgency) shift 2 ;;
+        -t|--expire-time|-i|--icon|-a|--app-name|-c|--category) shift 2 ;;
+        -h|--hint) shift 2 ;;
+        *) shift ;;
+    esac
+done
+
+summary="${1:-Notification}"
+body="${2:-}"
+
+is_wsl() {
+    grep -qi microsoft /proc/version 2>/dev/null
+}
+
+if is_wsl; then
+    if command -v wsl-notify-send.exe &>/dev/null; then
+        # wsl-notify-send accepts exactly one positional arg (message); --category is the toast title
+        if [[ -n "$body" ]]; then
+            wsl-notify-send.exe --category "$summary" "$body"
+        else
+            wsl-notify-send.exe --category "${WSL_DISTRO_NAME:-WSL}" "$summary"
+        fi
+        exit 0
+    fi
+
+    # Fallback when wsl-notify-send.exe is missing — often blocked by Constrained Language Mode
+    if command -v powershell.exe &>/dev/null; then
+        title_escaped="${summary//\'/\'\'}"
+        body_escaped="${body//\'/\'\'}"
+        if powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "
+            [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
+            [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
+            \$xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+            \$xml.LoadXml('<toast><visual><binding template=\"ToastText02\"><text id=\"1\">${title_escaped}</text><text id=\"2\">${body_escaped}</text></binding></visual></toast>')
+            \$toast = [Windows.UI.Notifications.ToastNotification]::new(\$xml)
+            [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('WSL').Show(\$toast)
+        " >/dev/null 2>&1; then
+            exit 0
+        fi
+    fi
+
+    echo "notify-send: no WSL notification backend (install wsl-notify-send via install.sh)" >&2
+    exit 1
+fi
+
+if command -v /usr/bin/notify-send &>/dev/null; then
+    exec /usr/bin/notify-send "$summary" ${body:+"$body"}
+fi
+
+if command -v notify-send &>/dev/null; then
+    real_notify="$(command -v notify-send)"
+    if [[ "$real_notify" != "$HOME/bin/notify-send" ]]; then
+        exec "$real_notify" "$summary" ${body:+"$body"}
+    fi
+fi
+
+echo "notify-send: no notification backend found" >&2
+exit 1

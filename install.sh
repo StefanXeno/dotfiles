@@ -2,7 +2,7 @@
 # ============================================================
 # Dotfiles Install Script
 # Supports: Ubuntu 22.04+ (native & WSL2)
-# Usage:    bash ~/.dotfiles/install.sh
+# Usage:    bash ~/dotfiles/install.sh
 # ============================================================
 
 set -euo pipefail
@@ -241,10 +241,82 @@ install_tpm() {
     info "Remember to install tmux plugins after first launch: prefix + I"
 }
 
+# ---------- 6b. WSL Windows Toast Notifications ----------
+
+install_wsl_notify() {
+    if ! is_wsl; then
+        return
+    fi
+
+    section "WSL Notifications (wsl-notify-send)"
+
+    local dest="$HOME/bin/wsl-notify-send.exe"
+    local version="v0.1.871612270"
+    local arch zip_url tmp_zip answer
+
+    if [[ -x "$dest" ]]; then
+        log "wsl-notify-send.exe already installed — skipping."
+        return
+    fi
+
+    # Docker CI and non-interactive shells cannot prompt — skip quietly
+    if is_docker || [[ ! -t 0 ]]; then
+        info "Non-interactive install — skipping optional wsl-notify-send."
+        info "Re-run install.sh in an interactive WSL session to opt in."
+        return
+    fi
+
+    echo ""
+    echo "  wsl-notify-send is an optional Windows .exe that lets tools like"
+    echo "  tmux-notify show native Windows toast notifications from WSL."
+    echo "  The ~/bin/notify-send wrapper uses it when present."
+    echo ""
+    warn "  On managed PCs, Group Policy / AppLocker may block unknown executables."
+    warn "  If blocked, Windows often reports this as 'Invalid argument' from WSL."
+    echo ""
+    read -r -p "  Install wsl-notify-send.exe to ~/bin/? [y/N] " answer
+    if [[ ! "$answer" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+        info "Skipped wsl-notify-send (install anytime by re-running install.sh)."
+        return
+    fi
+
+    case "$(uname -m)" in
+        x86_64)  arch="amd64" ;;
+        i686|i386) arch="386" ;;
+        *)
+            warn "No wsl-notify-send build for $(uname -m) — install manually if needed."
+            return
+            ;;
+    esac
+
+    zip_url="https://github.com/stuartleeks/wsl-notify-send/releases/download/${version}/wsl-notify-send_windows_${arch}.zip"
+    tmp_zip="$(mktemp)"
+
+    info "Downloading wsl-notify-send ${version} (${arch})..."
+    if ! curl -fsSL "$zip_url" -o "$tmp_zip"; then
+        warn "Failed to download wsl-notify-send — tmux-notify toasts will not work on WSL."
+        warn "Manual install: https://github.com/stuartleeks/wsl-notify-send/releases"
+        rm -f "$tmp_zip"
+        return
+    fi
+
+    unzip -qo "$tmp_zip" -d "$HOME/bin"
+    rm -f "$tmp_zip"
+    chmod +x "$dest"
+
+    log "wsl-notify-send installed to ~/bin/"
+    info "Test: notify-send \"Hello\" \"from WSL\""
+}
+
 # ---------- 7. Stow Dotfiles ----------
 
 stow_dotfiles() {
     section "Stow Dotfiles"
+
+    mkdir -p "$HOME/bin"
+    if [[ -f "$DOTFILES_DIR/zsh/bin/notify-send" ]]; then
+        chmod +x "$DOTFILES_DIR/zsh/bin/notify-send"
+    fi
 
     for package in "${STOW_PACKAGES[@]}"; do
         info "Stowing: $package"
@@ -396,6 +468,7 @@ main() {
     install_mise
     install_starship
     install_tpm
+    install_wsl_notify
 
     create_local_templates
     set_default_shell
