@@ -56,7 +56,7 @@
 
 | Alias | Action |
 |---|---|
-| `clipcopy` | Pipe to clipboard (`xclip` on Linux) |
+| `clipcopy` | Pipe to clipboard (`clip.exe` on WSL2, `xclip`/`wl-copy` on native Linux; needs a display — not in headless Docker) |
 | `dunno` / `idk` / `medunno` | Copy `¯\_(ツ)_/¯` to clipboard |
 
 ### System

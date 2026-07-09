@@ -2,7 +2,19 @@
 # Sourced by zsh — keep syntax bash-compatible where possible.
 
 # --- Clipboard ---
-alias clipcopy='xclip -selection clipboard'
+# WSL2 → Windows clipboard via clip.exe; native Linux → xclip (needs DISPLAY) or wl-copy
+clipcopy() {
+    if grep -qi microsoft /proc/version 2>/dev/null && command -v clip.exe &>/dev/null; then
+        clip.exe
+    elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy &>/dev/null; then
+        wl-copy
+    elif [[ -n "${DISPLAY:-}" ]] && command -v xclip &>/dev/null; then
+        xclip -selection clipboard
+    else
+        echo "clipcopy: no clipboard backend (WSL: clip.exe, Linux: DISPLAY+xclip or WAYLAND+wl-copy)" >&2
+        return 1
+    fi
+}
 
 _dunno_shrug() {
     echo -e '¯\_(ツ)_/¯' | clipcopy && echo 'Copied ¯\_(ツ)_/¯ to clipboard'

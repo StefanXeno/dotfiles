@@ -1,5 +1,11 @@
 # Global mise config — applies on every machine.
 # Project-specific tool versions go into <project>/.mise.toml
+#
+# Version policy:
+#   - Infrastructure / daily-driver CLI tools: pinned (update deliberately)
+#   - Misc / experimental tools: "latest" (see "Updating pinned tools" in README)
+#
+# Update a pin:  mise ls-remote <tool>   then edit version here and run mise install
 
 [env]
 # Let mise manage these paths so they're inserted in the correct
@@ -7,34 +13,36 @@
 _.path = ["~/.local/bin","~/bin", "~/tools"]
 
 [tools]
-# --- Infrastructure ---
-terraform   = "latest"
-kind        = "latest"
-kubectl     = "latest"
-helm        = "latest"
-krew        = "latest"
-k9s         = "latest"
-kubectx     = "latest"
-kubens      = "latest"
-helm-docs   = "latest"
-kubelogin   = "latest"
+# --- Infrastructure (pinned) ---
+terraform   = "1.15.6"
+kind        = "0.32.0"
+kubectl     = "1.36.2"
+helm        = "4.2.2"
+krew        = "0.5.0"
+k9s         = "0.51.0"
+kubectx     = "0.11.0"
+kubens      = "0.11.0"
+helm-docs   = "1.14.2"
+kubelogin   = "1.36.2"
 
-# --- Cloud ---
-azure       = "latest"
+# --- Cloud (pinned) ---
+azure       = "2.87.0"
 
 # --- Development ---
 node        = "lts"
 
-# --- Shell / Tools ---
-direnv      = "latest"   # Added: needed for 'eval "$(direnv hook zsh)"' in .zshrc
-fzf         = "latest"
-yq          = "latest"
-jq          = "latest"
+# --- Shell / Tools (pinned — used on every shell start) ---
+direnv      = "2.37.1"   # eval "$(direnv hook zsh)" in .zshrc
+fzf         = "0.74.0"
+yq          = "4.53.3"
+jq          = "1.8.1"
+usage       = "3.5.4"    # Shell completion helper for mise
+
+# --- Shell / Tools (latest — update via `mise upgrade` when convenient) ---
 jqp         = "latest"   # jq playground TUI
 dotenvx     = "latest"
-usage       = "latest"   # Shell completion helper for mise
 
-# --- Misc ---
+# --- Misc (latest) ---
 qdns        = "latest"
 "github:s3tools/s3cmd" = "latest"
-pipx = "latest"
+pipx        = "latest"

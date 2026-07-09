@@ -93,6 +93,7 @@ install_apt_packages() {
         bat           # Better 'cat' (available as 'batcat' on Ubuntu)
         tree          # Directory tree viewer (used in fzf preview)
         xclip         # Clipboard tool (for non-WSL systems)
+        python3-venv  # Required by mise pipx backends (azure-cli, pipx tool)
         python3-pygments  # Syntax highlighting for the OMZ colorize plugin
         source-highlight  # Syntax highlighting for 'less' (LESSOPEN)
         sl            # Important. Very important.

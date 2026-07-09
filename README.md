@@ -196,3 +196,19 @@ git pull
 # Re-stow if new files were added
 stow --no-folding -t "$HOME" zsh   # example
 ```
+
+### Updating pinned mise tools
+
+Infrastructure and daily-driver tools are **pinned** in `mise/.config/mise/config.toml`.
+Misc tools (`jqp`, `dotenvx`, `qdns`, `s3cmd`, `pipx`) stay on `latest`.
+
+```bash
+# See available versions for a tool
+mise ls-remote terraform
+
+# Bump the pin in config.toml, then install
+mise install
+
+# Upgrade only the "latest" tools
+mise upgrade jqp dotenvx qdns pipx
+```

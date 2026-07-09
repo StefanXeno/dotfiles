@@ -26,6 +26,32 @@ image_exists() {
     docker image inspect dotfiles-test:local &>/dev/null
 }
 
+# ── Verification ─────────────────────────────────────────────────────────────
+
+# Post-install smoke checks run inside the container (no image rebuild).
+verify_tmux() {
+    section "Verifying tmux"
+
+    if ! docker compose -f "$COMPOSE_FILE" exec dotfiles-test bash -c '
+        set -euo pipefail
+
+        echo -n "tmux version: "
+        tmux -V
+
+        [[ -f "$HOME/.tmux.conf" ]] || { echo "missing ~/.tmux.conf" >&2; exit 1; }
+
+        # Parse config and list bindings — fails on syntax errors without a session
+        tmux -f "$HOME/.tmux.conf" list-keys -N >/dev/null
+
+        echo "tmux config syntax OK"
+    '; then
+        err "tmux verification failed."
+        return 1
+    fi
+
+    log "tmux verification passed."
+}
+
 # ── Actions ──────────────────────────────────────────────────────────────────
 
 # Build image + start container (used only by 'install').
@@ -85,6 +111,16 @@ case "${1:-help}" in
         echo ""
         if [[ $install_exit_code -eq 0 ]]; then
             log "install.sh completed successfully!"
+
+            verify_tmux || install_exit_code=$?
+
+            if [[ $install_exit_code -ne 0 ]]; then
+                err "Post-install verification failed."
+                warn "Dropping into bash for debugging..."
+                docker compose -f "$COMPOSE_FILE" exec dotfiles-test bash
+                exit "$install_exit_code"
+            fi
+
             echo ""
             echo "  Verify your setup:  ./test/run.sh shell"
             echo "  Debug with bash:    ./test/run.sh bash"
