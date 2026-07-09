@@ -401,9 +401,24 @@ create_local_templates() {
 # export HTTPS_PROXY=""
 # export NO_PROXY="localhost,127.0.0.1"
 EOF
+        cat >> "$HOME/.zshrc.local" << EOF
+
+# --- Dotfiles path (for cs / Alt+H cheatsheet search) ---
+export DOTFILES_DIR="$DOTFILES_DIR"
+EOF
         log "Created ${HOME}/.zshrc.local"
     else
-        log "${HOME}/.zshrc.local already exists — skipping."
+        if ! grep -qE '^export DOTFILES_DIR=' "$HOME/.zshrc.local" 2>/dev/null; then
+            info "Adding DOTFILES_DIR to ~/.zshrc.local..."
+            cat >> "$HOME/.zshrc.local" << EOF
+
+# --- Dotfiles path (for cs / Alt+H cheatsheet search) ---
+export DOTFILES_DIR="$DOTFILES_DIR"
+EOF
+            log "Updated ${HOME}/.zshrc.local with DOTFILES_DIR"
+        else
+            log "${HOME}/.zshrc.local already exists — skipping."
+        fi
     fi
 
     # .gitconfig.local — private git config

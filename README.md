@@ -36,10 +36,13 @@ dotfiles/
 ├── tmux/
 │   └── .tmux.conf
 ├── docs/
-│   └── cheatsheets/
-│       ├── tmux.md             # tmux key binding reference
-│       ├── zsh-fzf.md          # zsh aliases, fzf bindings, OMZ plugins
-│       └── git.md              # git aliases and SSH signing
+│   ├── cheatsheets/            # Commands & aliases only (used by cs / Alt+H)
+│   │   ├── tmux.md
+│   │   ├── zsh-fzf.md
+│   │   └── git.md
+│   ├── tmux.md                 # Full tmux key binding reference
+│   ├── zsh.md                  # Plugins, fzf bindings, shell options
+│   └── git.md                  # SSH signing setup, defaults, private config
 ├── starship/
 │   └── .config/
 │       └── starship.toml
@@ -63,9 +66,17 @@ stow -D -t "$HOME" zsh               # remove only zsh config
 
 ## 📖 Cheatsheets
 
-- [tmux](docs/cheatsheets/tmux.md) — key bindings, plugins, copy mode
-- [zsh & fzf](docs/cheatsheets/zsh-fzf.md) — aliases, fzf bindings, OMZ plugins
-- [git](docs/cheatsheets/git.md) — aliases, SSH signing setup
+Quick command reference (searchable via `cs` / `Alt+H`):
+
+- [tmux](docs/cheatsheets/tmux.md) — shell commands
+- [zsh](docs/cheatsheets/zsh-fzf.md) — aliases and helpers
+- [git](docs/cheatsheets/git.md) — aliases and signing commands
+
+Detailed guides:
+
+- [tmux keys & plugins](docs/tmux.md)
+- [zsh & fzf](docs/zsh.md)
+- [git setup](docs/git.md)
 
 ## 🚀 Fresh Machine Setup
 

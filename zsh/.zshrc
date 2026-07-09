@@ -41,7 +41,7 @@ typeset -U PATH
 # ============================================================
 
 ZSH_CONFIG_DIR="$HOME/.zsh"
-for _zsh_module in options fzf aliases tmux completions k9s-functions; do
+for _zsh_module in options fzf aliases tmux completions k9s-functions cheatsheets; do
     [[ -f "$ZSH_CONFIG_DIR/${_zsh_module}.zsh" ]] && source "$ZSH_CONFIG_DIR/${_zsh_module}.zsh"
 done
 unset _zsh_module
@@ -71,7 +71,7 @@ eval "$(mise activate zsh)"
 # direnv — watches for .envrc files and loads/unloads env vars automatically
 eval "$(direnv hook zsh)"
 
-# fzf shell integration (fzf 0.48+) — key bindings (Ctrl+R, Ctrl+T, Alt+C)
+# fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Alt+H → cheatsheets.zsh)
 command -v fzf &>/dev/null && eval "$(fzf --zsh)"
 
 # ============================================================

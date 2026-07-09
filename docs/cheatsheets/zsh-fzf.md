@@ -1,122 +1,84 @@
-# zsh & fzf Cheatsheet
-
-## Oh My Zsh Plugins
-
-| Plugin | What it does |
-|---|---|
-| `zsh-autosuggestions` | Fish-like gray suggestions from history — accept with `→` |
-| `zsh-syntax-highlighting` | Colors valid/invalid commands as you type |
-| `sudo` | Press `Esc` twice to prepend `sudo` to the last command |
-| `colored-man-pages` | Syntax-colored man pages |
-| `autoupdate` | Auto-updates OMZ custom plugins |
-
-## Shell Options (from `options.zsh`)
-
-| Behavior | How |
-|---|---|
-| `cd` without typing `cd` | `AUTO_CD` — type a directory path and Enter |
-| Duplicate history entries | Ignored (`HIST_IGNORE_ALL_DUPS`) |
-| History size | 50,000 entries |
-| Syntax-colored `less` | Automatic via `source-highlight` |
-
-## fzf Key Bindings
-
-| Keys | Action |
-|---|---|
-| `Ctrl+R` | Search command history |
-| `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
-| `Alt+C` | Fuzzy-find directories and `cd` into selection |
-
-### Inside any fzf prompt
-
-| Keys | Action |
-|---|---|
-| `Ctrl+/` | Toggle preview window |
-| `Enter` | Confirm selection |
-| `Esc` | Cancel |
-
-### Ctrl+R (history)
-
-- Preview shows the full command below the prompt
-- Dracula-themed UI with `📖 Commands:` prompt
-
-### Ctrl+T (files)
-
-- Multi-select with `Tab`
-- Preview: `tree` for directories, `bat` for files
-- Respects `.gitignore` via `fd`
-
-### Alt+C (directories)
-
-- Preview shows `tree` of selected directory
+# zsh Cheatsheet
 
 ## Aliases
 
-### Clipboard
+| Alias | Command | What it does |
+|---|---|---|
+| `clipcopy` | stdin → clipboard | Pipe command output to the system clipboard |
+| `dunno` / `idk` / `medunno` / `idontknow` | `¯\_(ツ)_/¯` → clipboard | Copy the shrug emoticon to the clipboard |
+| `fd` | `fdfind` | Use Ubuntu's `fdfind` binary under the shorter `fd` name |
+| `bat` | `batcat` | Use Ubuntu's `batcat` binary under the shorter `bat` name |
+| `sl` | `sl -alFe` | Display the important train animation |
+| `dcu` | `docker compose up -d` | Start the current Docker Compose stack in the background |
+| `dcd` | `docker compose down` | Stop and remove containers from the current Compose stack |
+| `k` | `kubectl` | Run kubectl with working tab completion |
+| `kc` | `kubectx` | Switch the active Kubernetes cluster context |
+| `kns` | `kubens` | Switch the active Kubernetes namespace |
+| `hdoc` | `helm-docs` | Generate README documentation for Helm charts |
+| `jqq` | `$HOME/tools/jqq/jqq.rb` | Query JSON with the local jqq tool |
+| `bfg` | `java -jar $HOME/tools/bfg/bfg-1.14.0.jar` | Remove large files or secrets from Git history with BFG |
 
-| Alias | Action |
+## Commands
+
+| Command | What it does |
 |---|---|
-| `clipcopy` | Pipe to clipboard (`clip.exe` on WSL2, `xclip`/`wl-copy` on native Linux; needs a display — not in headless Docker) |
-| `dunno` / `idk` / `medunno` | Copy `¯\_(ツ)_/¯` to clipboard |
+| `tl` | List tmux sessions in fzf and attach to the selected one |
+| `tn [name]` | Create a new tmux session, or attach if the name already exists |
+| `ta [name]` | Attach to a tmux session, or open an fzf picker when called without a name |
+| `cs [query]` | Fuzzy-search cheatsheet commands and aliases (`Alt+H`) |
+| `cso` | Pick a cheatsheet markdown file and open it in `bat` |
 
-### System
+## fzf
 
-| Alias | Action |
+| Action | Keys | What it does |
+|---|---|---|
+| Search history | `Ctrl+R` | Fuzzy-search command history with full-command preview |
+| Find files | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
+| Find directory | `Alt+C` | Fuzzy-find directories and `cd` into the selection |
+| Search cheatsheets | `Alt+H` | Open the `cs` cheatsheet picker from the shell prompt |
+
+## k9s
+
+| Function | What it does |
 |---|---|
-| `fd` | Maps to `fdfind` on Ubuntu |
-| `bat` | Maps to `batcat` on Ubuntu |
-| `sl` | Important train (`sl -alFe`) |
+| `k9s-node-shell-on` | Enable the k9s node shell feature gate for the current shell session |
+| `k9s-node-shell-off` | Disable the k9s node shell feature gate again |
 
-### Docker
+## Docker
 
-| Alias | Action |
+| Command | What it does |
 |---|---|
-| `dcu` | `docker compose up -d` |
-| `dcd` | `docker compose down` |
+| `docker compose ps` | Show running containers for the current Compose project |
+| `docker compose logs -f` | Follow logs from all services in the current project |
+| `docker compose exec SERVICE sh` | Open a shell inside a running service container |
+| `docker compose restart SERVICE` | Restart a single service without tearing down the stack |
+| `docker compose up -d --build` | Rebuild images and start the stack in the background |
 
-### tmux
+## Kubernetes
 
-| Command | Action |
+| Command | What it does |
 |---|---|
-| `tl` | List sessions (fzf + window/pane preview; Enter attaches) |
-| `tn [name]` | New session (default name: basename of `$PWD`; attach if exists) |
-| `ta [name]` | Attach to session; without name → fzf picker |
-
-### Kubernetes
-
-| Command | Action |
-|---|---|
-| `k` | `kubectl` wrapper (tab completion works) |
-| `kc` | `kubectx` — switch cluster context |
-| `kns` | `kubens` — switch namespace |
-
-### Tools
-
-| Alias | Action |
-|---|---|
-| `hdoc` | `helm-docs` |
-| `jqq` | Local JSON query tool |
-| `bfg` | BFG Repo-Cleaner |
-
-## k9s Helpers
-
-| Function | Action |
-|---|---|
-| `k9s-node-shell-on` | Enable `K9S_FEATURE_GATE_NODE_SHELL=true` |
-| `k9s-node-shell-off` | Unset the feature gate |
-
-## Local Overrides
-
-Machine-specific config goes in `~/.zshrc.local` (not tracked in git):
-
-```zsh
-# Work aliases, API keys, proxy settings, etc.
-```
+| `kubectl get pods -A` | List pods in every namespace |
+| `kubectl get ns` | List all namespaces in the cluster |
+| `kubectl config current-context` | Show the active cluster context |
+| `kubectl get nodes` | List all nodes in the current cluster |
+| `kubectl logs -f POD -n NAMESPACE` | Follow logs from a pod in a specific namespace |
+| `kubectl describe pod POD -n NAMESPACE` | Show events and status details for a pod |
+| `kubectx -` | Switch back to the previous cluster context |
+| `kubens -` | Switch back to the previous namespace |
 
 ## Useful Commands
 
 ```bash
-exec zsh                    # reload shell after config changes
-mise ls                     # show installed tool versions
-direnv allow                # approve .envrc in current directory
+exec zsh                        # Reload the current shell after config changes
+echo foo | clipcopy             # Pipe output to the system clipboard
+bat README.md                   # Syntax-highlight a file in the terminal
+fd -e md cheatsheet             # Find files by name pattern (respects .gitignore)
+mise ls                         # List tool versions managed by mise
+mise install                    # Install all tools pinned in mise config
+mise use TOOL@VERSION           # Set a tool version in the current directory
+direnv allow                    # Approve the .envrc in the current directory
+stow -t $HOME zsh               # Link the zsh dotfiles package into $HOME
+jq . file.json                  # Pretty-print JSON from a file
+yq -y . file.yaml               # Convert YAML to JSON on stdout
 ```

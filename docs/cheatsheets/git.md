@@ -1,67 +1,46 @@
 # git Cheatsheet
 
-Config is split into public (`~/.gitconfig`) and private (`~/.gitconfig.local`).
-
 ## Aliases
 
 | Alias | Command | What it does |
 |---|---|---|
-| `git st` | `git status` | Working tree status |
-| `git lg` | `git log --oneline --graph --decorate --all` | Pretty branch graph |
-| `git whoami` | shows `user.name` + `user.email` | Active identity on this machine |
+| `git st` | `git status` | Show modified, staged, and untracked files in the working tree |
+| `git lg` | `git log --oneline --graph --decorate --all` | Display a compact graph of commits across all branches |
+| `git whoami` | `git config user.name && git config user.email` | Print the Git identity configured on this machine |
 
-## Commit Signing (SSH)
+## Stash & Branches
 
-All commits and tags are signed by default (`gpgsign = true`).
+| Task | Command | What it does |
+|---|---|---|
+| Stash changes | `git stash push -m "wip"` | Save uncommitted changes and revert the working tree |
+| List stashes | `git stash list` | Show all saved stashes with their messages |
+| Restore latest stash | `git stash pop` | Apply the most recent stash and remove it from the list |
+| List branches with upstream | `git branch -vv` | Show local branches and their tracking remote branches |
+| List remotes | `git remote -v` | Show configured remotes and their fetch/push URLs |
 
-| Task | Command |
-|---|---|
-| Verify last commit signature | `git log --show-signature -1` |
-| Test signing | `git commit --allow-empty -m "test: verify SSH signing"` |
-| Show active signing key | `git config user.signingkey` |
+## Signing
 
-Signing keys are **per machine** — path is set in `~/.gitconfig.local`.
-
-## SSH Signing Setup (new machine)
-
-```bash
-# 1. Generate a signing key
-ssh-keygen -t ed25519 \
-  -C "username@machinename" \
-  -f ~/.ssh/id_ed25519_signing_MACHINENAME
-
-# 2. Add to allowed_signers
-echo "your@email.com $(cat ~/.ssh/id_ed25519_signing_MACHINENAME.pub)" \
-  >> ~/.ssh/allowed_signers
-
-# 3. Set signingkey in ~/.gitconfig.local
-# 4. Add public key to GitHub → Settings → SSH and GPG keys → New signing key
-```
-
-## Defaults
-
-| Setting | Value |
-|---|---|
-| Credential cache | 8 hours (`cache --timeout=28800`) |
-| Push upstream | Auto-set on first push (`autoSetupRemote`) |
-| Editor | `vim` |
-| Signing format | SSH (not GPG) |
-
-## Private Config (`~/.gitconfig.local`)
-
-Required fields before committing:
-
-```ini
-[user]
-    name  = Your Name
-    email = your@email.com
-    signingkey = ~/.ssh/id_ed25519_signing_MACHINENAME.pub
-```
+| Task | Command | What it does |
+|---|---|---|
+| Verify last commit signature | `git log --show-signature -1` | Inspect the SSH signature on the most recent commit |
+| Test signing | `git commit --allow-empty -m "test: verify SSH signing"` | Create an empty signed commit to verify signing works |
+| Show active signing key | `git config user.signingkey` | Print the SSH public key path used for commit signing |
+| List trusted signers | `cat ~/.ssh/allowed_signers` | Show email-to-key mappings used to verify SSH signatures locally |
 
 ## Useful Commands
 
 ```bash
-git config --list --show-origin    # see where each setting comes from
-git diff --staged                  # review before commit
-git push -u origin HEAD            # push new branch with upstream
+git config --list --show-origin    # Show every Git setting and which file defined it
+git diff                           # Show unstaged changes in the working tree
+git diff --staged                  # Review staged changes before committing
+git add -p                         # Interactively stage hunks instead of whole files
+git restore --staged .             # Unstage all currently staged changes
+git restore .                      # Discard unstaged changes in tracked files
+git fetch --all --prune            # Fetch all remotes and remove deleted remote branches
+git pull --rebase                  # Pull remote changes and replay local commits on top
+git push -u origin HEAD            # Push the current branch and set upstream tracking
+git switch -                       # Jump back to the previously checked-out branch
+git log -n 10 --oneline            # Show the last 10 commits in compact form
+git show HEAD                      # Show the latest commit including its diff
+git clean -fd                      # Remove untracked files and directories (destructive)
 ```
