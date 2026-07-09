@@ -1,0 +1,47 @@
+---
+description: Shell scripting, shellcheck, and Ubuntu portability for sh/zsh files
+globs: install.sh,test/**/*.sh,zsh/**/*
+alwaysApply: false
+---
+
+# Shell Standards
+
+## Bash scripts (`*.sh`, `install.sh`, `test/`)
+
+- Use `set -euo pipefail` (or `set -uo pipefail` where `-e` would break control flow).
+- Must pass `shellcheck -x`.
+
+## Zsh modules (`zsh/.zsh/*.zsh`)
+
+- Add `# shellcheck shell=bash` and keep syntax **bash-compatible** where possible.
+- **Exceptions** (zsh-only, skip shellcheck): `options.zsh`, `completions.zsh`.
+- zsh-only constructs (`print -z`, `zle`, `compdef`): isolate at file bottom; use `# shellcheck disable=…` with a one-line reason.
+
+## Ubuntu portability
+
+Aliases do not work in subshells (fzf previews, `docker exec` scripts). Use `command -v`:
+
+```bash
+# ✅ GOOD — works in fzf preview strings and subshells
+command -v bat >/dev/null && bat … || command -v batcat >/dev/null && batcat … || cat
+
+# ❌ BAD — alias only; fails in Ctrl+T preview on stock Ubuntu
+bat --color=always {}
+```
+
+Same pattern for `fd` / `fdfind`.
+
+## Interactive bindings
+
+Only register zle/fzf key bindings when a real TTY exists:
+
+```zsh
+if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
+    eval "$(fzf --zsh)"
+fi
+```
+
+## Style
+
+- Comments in English; explain *why* for non-obvious logic.
+- Minimal diffs; match existing naming and structure in surrounding files.
