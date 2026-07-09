@@ -41,7 +41,7 @@ typeset -U PATH
 # ============================================================
 
 ZSH_CONFIG_DIR="$HOME/.zsh"
-for _zsh_module in options fzf aliases completions k9s-functions; do
+for _zsh_module in options fzf aliases tmux completions k9s-functions; do
     [[ -f "$ZSH_CONFIG_DIR/${_zsh_module}.zsh" ]] && source "$ZSH_CONFIG_DIR/${_zsh_module}.zsh"
 done
 unset _zsh_module

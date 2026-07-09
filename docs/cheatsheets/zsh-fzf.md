@@ -74,6 +74,14 @@
 | `dcu` | `docker compose up -d` |
 | `dcd` | `docker compose down` |
 
+### tmux
+
+| Command | Action |
+|---|---|
+| `tl` | List sessions (fzf + window/pane preview; Enter attaches) |
+| `tn [name]` | New session (default name: basename of `$PWD`; attach if exists) |
+| `ta [name]` | Attach to session; without name → fzf picker |
+
 ### Kubernetes
 
 | Command | Action |

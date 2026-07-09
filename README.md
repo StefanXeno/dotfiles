@@ -30,6 +30,7 @@ dotfiles/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
 │       ├── aliases.zsh         # Aliases and kubectl wrapper (`k`)
+│       ├── tmux.zsh            # tmux helpers: ta, tn, tl
 │       ├── completions.zsh     # Lazy-loaded tool completions
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
