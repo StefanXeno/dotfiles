@@ -35,10 +35,21 @@ Prefix is **Ctrl+a** (not the default Ctrl+b).
 | Re-tile all panes evenly | `prefix` + `t` |
 | Kill pane | `prefix` + `x` |
 | Zoom pane (toggle) | `prefix` + `z` |
+| Scratchpad popup shell | `prefix` + `` ` `` |
 | Show pane numbers briefly | `prefix` + `q` |
 | Sync input to all panes | `prefix` + `s` (toggle) |
 
 With only **two panes**, forwards and backwards look identical (both just swap positions). Use three or more panes to verify direction.
+
+### Scratchpad
+
+`prefix` + `` ` `` opens a **floating popup** (80%×80%) with a temporary shell on top of your layout.
+Use it for one-off commands, notes, or `htop` without touching your pane arrangement.
+Close it by exiting the shell (`exit` or `Ctrl+d`) or pressing the binding again.
+
+### Zoom
+
+`prefix` + `z` toggles the current pane to full window size (press again to restore).
 
 ## Copy Mode (vi-style)
 
