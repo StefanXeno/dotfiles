@@ -57,8 +57,11 @@ Yanked text is kept in the tmux buffer. With **tmux-yank** installed, it can als
 | Action | Keys |
 |---|---|
 | Reload config | `prefix` + `R` |
-| Install plugins | `prefix` + `I` |
-| Update plugins | `prefix` + `u` |
+| Install plugins (if missing) | `prefix` + `I` |
+| Update plugins to latest | `prefix` + `U` |
+
+Plugins are pinned in `install.sh` (`TPM_PLUGIN_REFS`) and cloned on install.
+Use `prefix` + `U` only when you want the latest upstream — bump pins in `install.sh` for reproducible updates.
 
 Plugins in use: `tmux-sensible`, `tmux-yank`, `tmux-notify`, `dracula/tmux`.
 

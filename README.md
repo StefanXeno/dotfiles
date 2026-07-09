@@ -98,7 +98,7 @@ exec zsh
 
 # 5. Install tmux plugins
 tmux
-# Inside tmux: prefix + I
+# Plugins are pre-installed by install.sh; use prefix + U to update to latest
 ```
 
 ## 🔐 Private / Machine-Specific Config
@@ -211,4 +211,16 @@ mise install
 
 # Upgrade only the "latest" tools
 mise upgrade jqp dotenvx qdns pipx
+```
+
+### Updating pinned TPM plugins
+
+tmux plugins are **pinned** in `install.sh` → `TPM_PLUGIN_REFS` and cloned during install.
+
+```bash
+# Bump the pin in install.sh, then re-run install (or clone manually)
+bash ~/dotfiles/install.sh
+
+# Or update to latest inside tmux (does not change install.sh pins)
+# prefix + U
 ```

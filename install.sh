@@ -27,6 +27,24 @@ declare -A OMZ_CUSTOM_PLUGIN_REFS=(
     ["zsh-syntax-highlighting"]="0.8.0"
 )
 
+# TPM plugins (directory name under ~/.tmux/plugins/ → git URL)
+declare -A TPM_PLUGINS=(
+    ["tpm"]="https://github.com/tmux-plugins/tpm"
+    ["tmux-sensible"]="https://github.com/tmux-plugins/tmux-sensible"
+    ["tmux-yank"]="https://github.com/tmux-plugins/tmux-yank"
+    ["tmux-notify"]="https://github.com/rickstaa/tmux-notify"
+    ["tmux"]="https://github.com/dracula/tmux"
+)
+
+# Pin TPM plugin versions (empty = latest)
+declare -A TPM_PLUGIN_REFS=(
+    ["tpm"]="v3.1.0"
+    ["tmux-sensible"]="v3.0.0"
+    ["tmux-yank"]="v2.3.0"
+    ["tmux-notify"]="v1.6.0"
+    ["tmux"]="v3.3.1"
+)
+
 # Stow packages to install (= top-level directories in this repo)
 STOW_PACKAGES=(git zsh tmux starship mise)
 
@@ -228,18 +246,34 @@ install_starship() {
 install_tpm() {
     section "TPM (Tmux Plugin Manager)"
 
-    local tpm_dir="$HOME/.tmux/plugins/tpm"
+    local plugins_dir="$HOME/.tmux/plugins"
+    mkdir -p "$plugins_dir"
 
-    if [[ -d "$tpm_dir" ]]; then
-        log "TPM already installed — pulling latest..."
-        git -C "$tpm_dir" pull --quiet
-    else
-        info "Installing TPM..."
-        git clone --depth=1 https://github.com/tmux-plugins/tpm "$tpm_dir"
-        log "TPM installed."
-    fi
+    for plugin_name in "${!TPM_PLUGINS[@]}"; do
+        local plugin_url="${TPM_PLUGINS[$plugin_name]}"
+        local plugin_dir="$plugins_dir/$plugin_name"
+        local plugin_ref="${TPM_PLUGIN_REFS[$plugin_name]:-}"
 
-    info "Remember to install tmux plugins after first launch: prefix + I"
+        if [[ -d "$plugin_dir" ]]; then
+            info "TPM plugin '$plugin_name' already installed — updating..."
+            git -C "$plugin_dir" fetch --quiet origin
+            if [[ -n "$plugin_ref" ]]; then
+                git -C "$plugin_dir" checkout --quiet "$plugin_ref"
+            else
+                git -C "$plugin_dir" pull --quiet
+            fi
+        else
+            info "Installing TPM plugin: $plugin_name"
+            if [[ -n "$plugin_ref" ]]; then
+                git clone --depth=1 --branch "$plugin_ref" "$plugin_url" "$plugin_dir"
+            else
+                git clone --depth=1 "$plugin_url" "$plugin_dir"
+            fi
+        fi
+    done
+
+    log "TPM and plugins ready (pinned in install.sh → TPM_PLUGIN_REFS)."
+    info "In tmux: prefix + U updates plugins to latest; bump pins in install.sh for reproducible installs."
 }
 
 # ---------- 6b. WSL Windows Toast Notifications ----------
@@ -484,7 +518,7 @@ main() {
     echo "  2. Fill in ~/.zshrc.local (secrets, work aliases, etc.)"
     echo "  3. Generate a signing key: see README.md"
     echo "  4. Start a new shell session: exec zsh"
-    echo "  5. Open tmux and install plugins: prefix + I"
+    echo "  5. Open tmux — plugins are pre-installed by install.sh"
     echo ""
 }
 
