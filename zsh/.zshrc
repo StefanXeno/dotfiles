@@ -75,23 +75,79 @@ eval "$(direnv hook zsh)"
 # Must run after mise activate so the binary is on PATH.
 if command -v kxd &>/dev/null; then
     eval "$(kxd init zsh)"
-
-    # Ctrl+K — interactive kubeconfig file switcher (replaces default kill-line).
-    # shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
-    if [[ -o interactive && -t 0 && -o zle ]]; then
-        _kxd_file_switch_widget() {
-            kxd file switch
-            zle reset-prompt
-        }
-        zle -N _kxd_file_switch_widget
-        bindkey '^K' _kxd_file_switch_widget
-    fi
 fi
 
 # fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Ctrl+K → kxd; Alt+H → cheatsheets.zsh)
 # Requires a TTY — skip in scripts/CI (avoids "can't change option: zle").
 if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
     eval "$(fzf --zsh)"
+fi
+
+# Ctrl+K — fzf kubeconfig picker (replaces default kill-line).
+# Uses fzf instead of `kxd file switch` (promptui): promptui steals/fails under zle,
+# and fzf reuses the Dracula theme from FZF_DEFAULT_OPTS (same as Ctrl+R/T).
+# Preview reads contexts/namespaces from the file locally (no API call).
+# shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
+if [[ -o interactive && -t 0 && -o zle ]] \
+    && command -v kxd &>/dev/null \
+    && command -v fzf &>/dev/null; then
+    _kxd_file_switch_widget() {
+        local selected
+        selected="$(
+            command kxd file list \
+                | FZF_DEFAULT_OPTS="${FZF_DEFAULT_OPTS-}" fzf \
+                    --prompt='☸️ Kubeconfig: ' \
+                    --header='🔍 Switch kubeconfig' \
+                    --preview '
+                        name={}
+                        if [ "$name" = unset ]; then
+                            printf "%s\n" "KUBECONFIG will be unset"
+                            exit 0
+                        fi
+                        if [ "$name" = default ]; then
+                            kc="$HOME/.kube/config"
+                        else
+                            kc="$HOME/.kube/$name"
+                        fi
+                        printf "File: %s\n\n" "$kc"
+                        if [ ! -f "$kc" ]; then
+                            printf "%s\n" "(file not found)"
+                            exit 0
+                        fi
+                        if ! command -v kubectl >/dev/null 2>&1; then
+                            printf "%s\n" "kubectl not found"
+                            exit 0
+                        fi
+                        # Contexts + default namespace from the file (no AUTHINFO, no API call)
+                        cur=$(kubectl --kubeconfig "$kc" config current-context 2>/dev/null || true)
+                        kubectl --kubeconfig "$kc" config view -o jsonpath="{range .contexts[*]}{.name}{\"\t\"}{.context.cluster}{\"\t\"}{.context.namespace}{\"\n\"}{end}" 2>/dev/null \
+                            | awk -v cur="$cur" -F "\t" "
+                                BEGIN { printf \"%-2s %-36s %-36s %s\n\", \"\", \"NAME\", \"CLUSTER\", \"NAMESPACE\" }
+                                {
+                                    mark = (\$1 == cur) ? \"*\" : \" \"
+                                    ns = (\$3 == \"\") ? \"-\" : \$3
+                                    printf \"%-2s %-36s %-36s %s\n\", mark, \$1, \$2, ns
+                                }
+                            " \
+                            || printf "%s\n" "(unreadable or invalid kubeconfig)"
+                    ' \
+                    --preview-window 'right:55%:wrap' \
+                    --bind 'ctrl-/:toggle-preview' \
+                    --bind 'focus:preview-top'
+        )" || {
+            zle reset-prompt
+            return
+        }
+        [[ -n "$selected" ]] || {
+            zle reset-prompt
+            return
+        }
+        # Shell function (from kxd init) writes ~/.kxd and exports KUBECONFIG
+        kxd "$selected"
+        zle reset-prompt
+    }
+    zle -N _kxd_file_switch_widget
+    bindkey '^K' _kxd_file_switch_widget
 fi
 
 # ============================================================

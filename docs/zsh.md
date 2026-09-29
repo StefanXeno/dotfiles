@@ -29,7 +29,7 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 |---|---|
 | `Ctrl+R` | Search command history |
 | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
-| `Ctrl+K` | Switch kubeconfig file via `kxd` (replaces default kill-line) |
+| `Ctrl+K` | fzf kubeconfig picker via `kxd` (replaces default kill-line) |
 | `Alt+C` | Fuzzy-find directories and `cd` into selection |
 | `Alt+H` | Search dotfiles cheatsheets (`cs`) |
 
@@ -54,9 +54,12 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 
 ### Ctrl+K (kubeconfig)
 
-- Runs `kxd file switch` — promptui picker over files matching `KXD_MATCHER` in `~/.kube`
+- fzf picker over `kxd file list` (Dracula theme via `FZF_DEFAULT_OPTS`)
+- Preview: `kubectl config get-contexts` for the highlighted file (local; no API call)
+- Selecting a file runs `kxd <name>` so `KUBECONFIG` updates in the current shell
 - Default matcher: `.conf,config.` (override in `~/.zshrc.local`)
 - Selection persists via `~/.kxd` and is re-applied on every new shell
+- Note: `kxd f s` still uses kxd's own promptui UI — Ctrl+K is the fzf path
 
 ### Alt+C (directories)
 

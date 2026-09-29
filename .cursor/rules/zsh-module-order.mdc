@@ -17,7 +17,8 @@ alwaysApply: false
 
 Tool activations **must** stay after `.zshrc.local` and all PATH changes so mise shims win.
 
-`kxd init` must stay after `mise activate` (binary on PATH). Ctrl+K is bound there to `kxd file switch`.
+`kxd init` must stay after `mise activate` (binary on PATH). Ctrl+K is an fzf widget
+(not `kxd file switch` / promptui — that breaks under zle and skips Dracula theming).
 
 ## OMZ plugins
 

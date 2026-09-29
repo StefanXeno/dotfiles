@@ -35,7 +35,7 @@
 |---|---|---|
 | Search history | `Ctrl+R` | Fuzzy-search command history with full-command preview |
 | Find files | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
-| Switch kubeconfig | `Ctrl+K` | Interactive `kxd` picker for kubeconfig files in `~/.kube` |
+| Switch kubeconfig | `Ctrl+K` | fzf picker for kubeconfigs; preview shows contexts/namespaces |
 | Find directory | `Alt+C` | Fuzzy-find directories and `cd` into the selection |
 | Search cheatsheets | `Alt+H` | Open the `cs` cheatsheet picker from the shell prompt |
 
