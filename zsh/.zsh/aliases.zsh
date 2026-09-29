@@ -60,3 +60,6 @@ alias kns="kubens"
 
 # --- helm-docs ---
 alias hdoc="helm-docs"
+
+# --- git ---
+alias gl="git pull"
