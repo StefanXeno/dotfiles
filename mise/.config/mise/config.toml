@@ -41,8 +41,10 @@ usage       = "3.5.4"    # Shell completion helper for mise
 # --- Shell / Tools (latest — update via `mise upgrade` when convenient) ---
 jqp         = "latest"   # jq playground TUI
 dotenvx     = "latest"
+uv          = "latest"
 
 # --- Misc (latest) ---
 qdns        = "latest"
 "github:s3tools/s3cmd" = "latest"
 pipx        = "latest"
+azure-kubelogin = "latest"
