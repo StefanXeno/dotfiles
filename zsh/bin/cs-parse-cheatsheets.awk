@@ -31,7 +31,7 @@ function looks_like_shell(cmd) {
     # vi-style key lists (h / j / k / l) or "q or Esc"
     if (cmd ~ /^[a-z]([ \t]*\/[ \t]*[a-z])+$/) return 0
     if (cmd ~ /^q or /) return 0
-    return (cmd ~ /^(tmux|git|docker|kubectl|kubectx|kubens|helm|exec|mise|direnv|notify-send|ssh-keygen|less|bat|fd|fdfind|sl|helm-docs|java|echo|cat|jq|yq)/) \
+    return (cmd ~ /^(tmux|git|docker|kubectl|kubectx|kubens|kxd|helm|exec|mise|direnv|notify-send|ssh-keygen|less|bat|fd|fdfind|sl|helm-docs|java|echo|cat|jq|yq)/) \
         || (cmd ~ / /)
 }
 

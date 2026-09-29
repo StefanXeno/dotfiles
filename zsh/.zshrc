@@ -70,7 +70,25 @@ eval "$(mise activate zsh)"
 # direnv — watches for .envrc files and loads/unloads env vars automatically
 eval "$(direnv hook zsh)"
 
-# fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Alt+H → cheatsheets.zsh)
+# kxd — kubeconfig switcher. Defines the `kxd` shell function (exports KUBECONFIG
+# after switches) and reapplies the last selection from ~/.kxd.
+# Must run after mise activate so the binary is on PATH.
+if command -v kxd &>/dev/null; then
+    eval "$(kxd init zsh)"
+
+    # Ctrl+K — interactive kubeconfig file switcher (replaces default kill-line).
+    # shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
+    if [[ -o interactive && -t 0 && -o zle ]]; then
+        _kxd_file_switch_widget() {
+            kxd file switch
+            zle reset-prompt
+        }
+        zle -N _kxd_file_switch_widget
+        bindkey '^K' _kxd_file_switch_widget
+    fi
+fi
+
+# fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Ctrl+K → kxd; Alt+H → cheatsheets.zsh)
 # Requires a TTY — skip in scripts/CI (avoids "can't change option: zle").
 if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
     eval "$(fzf --zsh)"

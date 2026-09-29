@@ -13,6 +13,10 @@ setopt HIST_FIND_NO_DUPS
 setopt INC_APPEND_HISTORY
 
 export KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
+# kxd matches filenames in ~/.kube containing any of these substrings.
+# Includes *.conf (upstream default) and config.* (e.g. config.prod).
+# Override in ~/.zshrc.local if needed. "default" / "unset" are always listed.
+export KXD_MATCHER="${KXD_MATCHER:-.conf,config.}"
 export EDITOR="${EDITOR:-vim}"
 
 # Bootstrap PATH for mise/direnv before 'mise activate' wires up shims

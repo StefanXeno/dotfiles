@@ -29,6 +29,7 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 |---|---|
 | `Ctrl+R` | Search command history |
 | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
+| `Ctrl+K` | Switch kubeconfig file via `kxd` (replaces default kill-line) |
 | `Alt+C` | Fuzzy-find directories and `cd` into selection |
 | `Alt+H` | Search dotfiles cheatsheets (`cs`) |
 
@@ -50,6 +51,12 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 - Multi-select with `Tab`
 - Preview: `tree` for directories, `bat` for files
 - Respects `.gitignore` via `fd`
+
+### Ctrl+K (kubeconfig)
+
+- Runs `kxd file switch` — promptui picker over files matching `KXD_MATCHER` in `~/.kube`
+- Default matcher: `.conf,config.` (override in `~/.zshrc.local`)
+- Selection persists via `~/.kxd` and is re-applied on every new shell
 
 ### Alt+C (directories)
 

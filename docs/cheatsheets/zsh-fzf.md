@@ -15,6 +15,7 @@
 | `kc` | `kubectx` | Switch the active Kubernetes cluster context |
 | `kns` | `kubens` | Switch the active Kubernetes namespace |
 | `hdoc` | `helm-docs` | Generate README documentation for Helm charts |
+| `gl` | `git pull` | Pull the current branch from its remote |
 | `jqq` | `$HOME/tools/jqq/jqq.rb` | Query JSON with the local jqq tool |
 | `bfg` | `java -jar $HOME/tools/bfg/bfg-1.14.0.jar` | Remove large files or secrets from Git history with BFG |
 
@@ -34,6 +35,7 @@
 |---|---|---|
 | Search history | `Ctrl+R` | Fuzzy-search command history with full-command preview |
 | Find files | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
+| Switch kubeconfig | `Ctrl+K` | Interactive `kxd` picker for kubeconfig files in `~/.kube` |
 | Find directory | `Alt+C` | Fuzzy-find directories and `cd` into the selection |
 | Search cheatsheets | `Alt+H` | Open the `cs` cheatsheet picker from the shell prompt |
 
@@ -66,6 +68,10 @@
 | `kubectl describe pod POD -n NAMESPACE` | Show events and status details for a pod |
 | `kubectx -` | Switch back to the previous cluster context |
 | `kubens -` | Switch back to the previous namespace |
+| `kxd f s` | Switch kubeconfig file (same as `Ctrl+K`) |
+| `kxd ctx s` | Switch context inside the current kubeconfig |
+| `kxd ns s` | Switch namespace in the current context |
+| `kxd f c` | Print the currently selected kubeconfig path |
 
 ## Useful Commands
 
