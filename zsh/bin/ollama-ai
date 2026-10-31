@@ -42,16 +42,30 @@ command -v jq >/dev/null || exit 1
 
 # Loaded model and the keep_alive that preserves its current lifetime: name<TAB>keep_alive.
 # Every request resets keep_alive, so pass the remaining time back instead of the 5m default.
+# A dead Ollama (not installed, stopped, a host that drops packets) would cost a connect timeout on
+# every prompt, status refresh and keystroke. Remember "down" for a few seconds instead.
+DOWN_FLAG="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-down"
+DOWN_TTL=5
+
 active_model() {
     local ps name expires now
-    ps="$(curl -s -m 0.5 "$OLLAMA_URL/api/ps")" || return 1
+    printf -v now '%(%s)T' -1
+    if [[ -f "$DOWN_FLAG" && "$(<"$DOWN_FLAG")" == "$OLLAMA_URL" ]] \
+        && ((now - $(stat -c %Y "$DOWN_FLAG" 2>/dev/null || echo 0) < DOWN_TTL)); then
+        return 1
+    fi
+    if ! ps="$(curl -s --connect-timeout 0.15 -m 0.5 "$OLLAMA_URL/api/ps")"; then
+        mkdir -p "${DOWN_FLAG%/*}"
+        printf '%s' "$OLLAMA_URL" >"$DOWN_FLAG"
+        return 1
+    fi
+    [[ ! -f "$DOWN_FLAG" ]] || rm -f "$DOWN_FLAG"
     name="$(jq -r '.models[0].name // empty' <<<"$ps" 2>/dev/null)"
     [[ -n "$name" ]] || return 1
     expires="$(jq -r '.models[0].expires_at' <<<"$ps")"
     if ((${expires:0:4} > 2100)); then
         printf '%s\t-1\n' "$name"
     else
-        now="$(date +%s)"
         expires="$(date -d "$expires" +%s 2>/dev/null || echo "$now")"
         printf '%s\t%s\n' "$name" "$((expires > now ? expires - now : 1))"
     fi

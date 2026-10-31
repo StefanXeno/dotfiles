@@ -13,8 +13,12 @@ paths:
 # Local AI Layer
 
 - **Degrade silently.** No Ollama, no loaded model, no `jq`, no `ip`, no opencode, no Claude cache:
-  nothing may print errors or stall the prompt. Anything that runs per prompt or per keystroke needs a
-  short timeout (a dead Windows host costs ~0.5 s per curl).
+  nothing may print errors or stall the prompt. Anything that runs per prompt, status refresh or keystroke
+  must go through `active_model` in `ollama-ai`: it uses a 0.15 s connect timeout and remembers a dead
+  Ollama for 5 s (`~/.cache/dotfiles/ollama-down`), because a Windows host that drops packets costs the
+  full timeout on every call. Do not add bare `curl` calls to the hot paths.
+- **opencode wrapper:** it starts Ollama only for an `ollama/...` model, and `ollama-menu up` reports when
+  Ollama is not installed on Windows instead of waiting 30 s.
 - **Shell state is invisible to bash scripts.** `ollama.zsh` writes aliases and own functions to
   `~/.cache/dotfiles/ollama-context/`; `ollama-ai` reads them to explain `ll`, `lg`, `k`, ...
 - **mise tools are on PATH only after `mise activate`** (end of `.zshrc`). Never guard a definition with

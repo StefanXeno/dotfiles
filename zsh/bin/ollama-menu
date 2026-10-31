@@ -47,8 +47,11 @@ win_ps() {
 cmd_up() {
     api_up && return 0
     command -v powershell.exe >/dev/null || die "Ollama unreachable at $OLLAMA_URL and no Windows interop"
-    echo "Starting Ollama on Windows ..." >&2
     # shellcheck disable=SC2016 # $env:LOCALAPPDATA is expanded by PowerShell, not bash
+    win_ps 'if (-not (Test-Path "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe")) { exit 1 }' \
+        || die "Ollama is not installed on Windows (no %LOCALAPPDATA%\\Programs\\Ollama\\ollama app.exe)"
+    echo "Starting Ollama on Windows ..." >&2
+    # shellcheck disable=SC2016 # same here
     win_ps 'Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe"'
     local _
     for _ in {1..30}; do

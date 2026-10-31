@@ -40,11 +40,10 @@ opencode() {
     done
     [[ -z "$model" ]] && model="$(jq -r '.model // empty' "$HOME/.config/opencode/opencode.json" 2>/dev/null)"
 
-    if command -v ollama-menu &>/dev/null; then
+    # Start Ollama and preload the model only when opencode will actually use a local model.
+    if [[ "$model" == ollama/* ]] && command -v ollama-menu &>/dev/null; then
         ollama-menu up
-        if [[ "$model" == ollama/* ]]; then
-            (ollama-menu load "${model#ollama/}" >/dev/null 2>&1 &)
-        fi
+        (ollama-menu load "${model#ollama/}" >/dev/null 2>&1 &)
     fi
 
     _opencode_sync_service_env
