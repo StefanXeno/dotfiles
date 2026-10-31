@@ -26,6 +26,8 @@ dotfiles/
 ├── ai/
 │   ├── rules/*.md              # Source of the path-scoped project rules (edit these)
 │   ├── global/AGENTS.md        # Source of the personal rules for every project (edit this)
+│   ├── skills/                 # Skills for all AI tools (add-global-rule), linked to ~/.claude/skills
+│   ├── link-skills             # Symlinks ai/skills/* into ~/.claude/skills (install.sh, make stow)
 │   └── sync                    # Generates the per-tool copies; `--check` fails on drift
 ├── claude/
 │   └── .claude/CLAUDE.md       # GENERATED -> ~/.claude/CLAUDE.md (personal rules)
@@ -205,6 +207,7 @@ One source feeds Claude Code, Cursor and opencode:
 | `ai/rules/*.md` | `.claude/rules/*.md`, `.cursor/rules/*.mdc` | project rules; opencode loads `ai/rules/*.md` via `opencode.json` |
 | `ai/global/AGENTS.md` | `~/.claude/CLAUDE.md`, `~/.config/opencode/global-rules.md` (Stow) | personal rules in every project |
 | `AGENTS.md` (hand-written) | – | opencode, Cursor and Claude Code (`CLAUDE.md` imports it) |
+| `ai/skills/*/SKILL.md` | linked into `~/.claude/skills/` (`ai/link-skills`) | skills for all three tools; `add-global-rule` extends the personal rules |
 
 A pre-commit hook regenerates the copies (the commit fails once if files changed) and CI runs `ai/sync --check`.
 Cursor's personal "User Rules" live in the app: paste `ai/global/AGENTS.md` into Settings → Rules.

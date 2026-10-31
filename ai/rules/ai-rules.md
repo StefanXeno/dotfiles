@@ -23,6 +23,7 @@ One source feeds Claude Code, Cursor and opencode.
 | `ai/global/AGENTS.md` | `claude/.claude/CLAUDE.md` -> `~/.claude/CLAUDE.md` | Claude Code, all projects |
 | | `opencode/.config/opencode/global-rules.md` | opencode, all projects (`instructions`) |
 | `AGENTS.md` (root, hand-written) | `CLAUDE.md` imports it | opencode, Cursor and Claude Code |
+| `ai/skills/<name>/SKILL.md` | symlinked as a directory into `~/.claude/skills/` by `ai/link-skills` | Claude Code, opencode and Cursor (all read that path) |
 
 ## Workflow
 
@@ -32,6 +33,13 @@ One source feeds Claude Code, Cursor and opencode.
 - Rule frontmatter: `description` (required) and `paths` (YAML list of globs). No `paths` means the
   rule always applies.
 - A new generated target needs a Stow package listed in `STOW_PACKAGES` and a re-stow.
+
+## Skills
+
+- `ai/skills/<name>/` holds one skill each (frontmatter `name` = directory name, `description`). `ai/sync`
+  validates them; `install.sh` and `make stow` run `ai/link-skills`. The skill *directory* is symlinked, not
+  the file: Claude Code documents symlinked skill folders, a symlinked `SKILL.md` is not documented.
+- `add-global-rule` adds a rule to `ai/global/AGENTS.md`; it is the way to extend the personal ruleset.
 
 ## Tool facts
 

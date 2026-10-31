@@ -1,5 +1,5 @@
 # Dev shortcuts for this repo. Tools (pre-commit, gitleaks, shellcheck, shfmt) come from mise.
-SHELL_FILES := install.sh ai/sync $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status
+SHELL_FILES := install.sh ai/sync ai/link-skills $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status
 STOW_PACKAGES := $(shell sed -n 's/^STOW_PACKAGES=(\(.*\))/\1/p' install.sh)
 
 .DEFAULT_GOAL := help
@@ -23,6 +23,7 @@ secrets: ## Scan the full git history and the working tree for secrets
 
 stow: ## Re-stow all packages listed in install.sh
 	@for p in $(STOW_PACKAGES); do echo "stow $$p"; stow --no-folding -d "$(CURDIR)" -t "$$HOME" "$$p"; done
+	@ai/link-skills
 
 rules: ## Regenerate the Claude / Cursor / opencode rules from ai/
 	ai/sync

@@ -8,6 +8,8 @@
 # Sources - edit these:
 #   ai/rules/*.md         project rules; frontmatter: `description`, optional `paths` (globs)
 #   ai/global/AGENTS.md   personal rules for every project (stowed into the home directory)
+#   ai/skills/<name>/     skills (SKILL.md); validated here, linked into ~/.claude/skills/ by
+#                         ai/link-skills (read by Claude Code, opencode and Cursor)
 #
 # Derived - never edit (each carries a "Generated from" marker):
 #   .claude/rules/*.md                          Claude Code (same file, path-scoped via `paths`)
@@ -98,6 +100,41 @@ orphans() {
     done
 }
 
+# A skill is a directory ai/skills/<name>/ with a SKILL.md whose frontmatter starts on line 1 and has
+# `name` (= directory name, lowercase with single hyphens) and a `description` of up to 1024 characters.
+validate_skills() {
+    local dir name fm_name fm_desc bad=0
+    for dir in ai/skills/*/; do
+        [[ -d "$dir" ]] || continue
+        name="$(basename "$dir")"
+        if [[ ! -f "$dir/SKILL.md" ]]; then
+            echo "skill $name: SKILL.md is missing" >&2
+            bad=1
+            continue
+        fi
+        [[ "$(head -n 1 "$dir/SKILL.md")" == --- ]] || {
+            echo "skill $name: frontmatter must start on line 1" >&2
+            bad=1
+        }
+        fm_name="$(awk '/^---$/ { c++; next } c == 1 && /^name:/ { sub(/^name:[ ]*/, ""); print; exit }' "$dir/SKILL.md")"
+        fm_desc="$(awk '/^---$/ { c++; next } c == 1 && /^description:/ { sub(/^description:[ ]*/, ""); print; exit }' "$dir/SKILL.md")"
+        [[ "$name" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]] || {
+            echo "skill $name: directory name must be lowercase-with-hyphens" >&2
+            bad=1
+        }
+        [[ "$fm_name" == "$name" ]] || {
+            echo "skill $name: frontmatter name is '$fm_name'" >&2
+            bad=1
+        }
+        { [[ -n "$fm_desc" ]] && ((${#fm_desc} <= 1024)); } || {
+            echo "skill $name: description must be 1-1024 characters" >&2
+            bad=1
+        }
+    done
+    return "$bad"
+}
+
+validate_skills || exit 1
 build
 
 status=0

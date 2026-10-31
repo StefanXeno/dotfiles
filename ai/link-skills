@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Link every skill of ai/skills/ into ~/.claude/skills/.
+#
+# Claude Code, opencode and Cursor all read ~/.claude/skills/<name>/SKILL.md. The skill *directory*
+# is symlinked: Claude Code documents symlinked skill folders as supported, a symlinked SKILL.md
+# inside a real folder (what Stow would create) is not documented. Run by install.sh and `make stow`.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEST="${CLAUDE_SKILLS_DIR:-$HOME/.claude/skills}"
+
+mkdir -p "$DEST"
+
+for dir in "$ROOT"/ai/skills/*/; do
+    [[ -f "$dir/SKILL.md" ]] || continue
+    name="$(basename "$dir")"
+    target="$DEST/$name"
+    if [[ -L "$target" ]]; then
+        ln -sfn "${dir%/}" "$target"
+        echo "linked:  $name"
+    elif [[ -e "$target" ]]; then
+        echo "skipped: $target exists and is not a symlink" >&2
+    else
+        ln -s "${dir%/}" "$target"
+        echo "linked:  $name"
+    fi
+done
+
+# Drop links to skills that no longer exist in ai/skills/ (only links that point into this repo).
+for link in "$DEST"/*; do
+    [[ -L "$link" && ! -e "$link" ]] || continue
+    [[ "$(readlink "$link")" == "$ROOT"/ai/skills/* ]] || continue
+    rm -f -- "$link"
+    echo "removed: $(basename "$link") (skill is gone)"
+done

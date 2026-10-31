@@ -11,6 +11,7 @@ on:
       - 'zsh/bin/claude-usage'
       - 'zsh/bin/tmux-ai-status'
       - 'ai/sync'
+      - 'ai/link-skills'
       - 'zsh/bin/wt-settings'
       - '.github/workflows/shellcheck.yml'
   pull_request:
@@ -23,6 +24,7 @@ on:
       - 'zsh/bin/claude-usage'
       - 'zsh/bin/tmux-ai-status'
       - 'ai/sync'
+      - 'ai/link-skills'
       - 'zsh/bin/wt-settings'
       - '.github/workflows/shellcheck.yml'
 
@@ -48,4 +50,4 @@ jobs:
             zsh/.zsh/tmux.zsh
 
       - name: Run shellcheck on zsh/bin scripts
-        run: shellcheck -x zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status ai/sync
+        run: shellcheck -x zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status ai/sync ai/link-skills

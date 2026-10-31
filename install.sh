@@ -457,6 +457,15 @@ stow_dotfiles() {
     fi
 }
 
+# ---------- 7b. AI Skills ----------
+
+# Skills live in ai/skills/ and are linked into ~/.claude/skills/ (Claude Code, opencode and
+# Cursor all read it). Needs no mise tool, so it can run right after stow.
+link_ai_skills() {
+    section "AI Skills"
+    "$DOTFILES_DIR/ai/link-skills"
+}
+
 # ---------- 8. Create Local Template Files ----------
 
 create_local_templates() {
@@ -596,6 +605,7 @@ main() {
     # mise needs ~/.config/mise/config.toml to know which tools to install.
     # That file only exists after stow creates the symlink.
     stow_dotfiles
+    link_ai_skills
 
     # Now mise can find its config and install all tools (including fzf)
     install_mise

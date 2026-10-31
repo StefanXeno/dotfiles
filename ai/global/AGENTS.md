@@ -46,3 +46,8 @@ These apply to every project on every machine. Project rules (`AGENTS.md`, `.cla
 - Config files in `~` are GNU Stow symlinks into `~/dotfiles` (a public repo): edit the repo
   file, never append to `~/.zshrc`. Private or machine-specific settings go into `*.local` files.
 - Local AI: Ollama runs on the Windows host, opencode runs in WSL.
+
+## Adding global rules
+- To add or change a rule for all projects, use the `add-global-rule` skill (`/add-global-rule <rule>`).
+  It edits `~/dotfiles/ai/global/AGENTS.md`, the single source, and regenerates the copies.
+  `~/.claude/CLAUDE.md` and `~/.config/opencode/global-rules.md` are generated: never edit them.
