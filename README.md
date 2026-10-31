@@ -57,7 +57,7 @@ dotfiles/
 ├── nvim/
 │   └── .config/nvim/           # init.lua + lazy-lock.json (lazy.nvim, Dracula, treesitter)
 ├── opencode/
-│   └── .config/opencode/       # opencode.json, AGENTS.md, system_prompt.md
+│   └── .config/opencode/       # opencode.json, AGENTS.md, global-rules.md (generated)
 │       └── memory/             # Private opencode memory — gitignored, created by install.sh
 ├── lazygit/
 │   └── .config/lazygit/        # config.yml (delta as diff pager)
