@@ -8,7 +8,7 @@
 #   ollama-ai complete BUFFER     print a completion for BUFFER (zsh-autosuggestions);
 #                                 recent commands are read from stdin
 #   ollama-ai bubble [--plain] WIDTH TITLE <text
-#                                 draw text in an 8-bit style speech bubble
+#                                 draw text in a rounded, colored box (Ctrl+. / Ctrl+R)
 set -uo pipefail
 # No pathname expansion: word-splitting text like "du -sh *" must not glob.
 set -f
@@ -17,7 +17,23 @@ set -f
 OLLAMA_WIN_HOST="${OLLAMA_WIN_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
 OLLAMA_URL="${OLLAMA_URL:-http://${OLLAMA_WIN_HOST}:11434}"
 OLLAMA_AI_LANG="${OLLAMA_AI_LANG:-English}"
+# Answer budget: short commands get a compact answer, big ones (multi-line, long, many pipes)
+# may list more parts and use more tokens. Override via the environment.
+OLLAMA_AI_PARTS_SHORT="${OLLAMA_AI_PARTS_SHORT:-5}"
+OLLAMA_AI_PARTS_LONG="${OLLAMA_AI_PARTS_LONG:-14}"
+OLLAMA_AI_TOKENS_SHORT="${OLLAMA_AI_TOKENS_SHORT:-300}"
+OLLAMA_AI_TOKENS_LONG="${OLLAMA_AI_TOKENS_LONG:-1000}"
+OLLAMA_AI_LONG_CHARS="${OLLAMA_AI_LONG_CHARS:-120}" # commands longer than this count as "big"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-explain"
+# Bump when the explain prompt/format changes: it is part of the cache key, so old answers are skipped.
+PROMPT_VERSION=8
+# Aliases / functions of the interactive shell, written by ollama.zsh (this script cannot see them).
+CONTEXT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-context"
+# Card height bookkeeping: rows printed so far, and the height to pad the card to (0 = no padding).
+ROW_COUNT=0
+PAD_TO=0
+CTX_DISPLAY=()
+CTX_MODEL=""
 
 command -v jq >/dev/null || exit 1
 
@@ -56,14 +72,22 @@ cmd_active() {
     cut -f1 <<<"$active"
 }
 
-# ── 8-bit speech bubble ───────────────────────────────────────────────────────
-# Quadrant blocks (▛▀▜ ▌▐ ▙▄▟) give the chunky NES dialog-box look; the tail on top
-# points up at the command. BUBBLE_PLAIN=1 drops colors (zle -M prints them raw).
+# ── Explanation card ──────────────────────────────────────────────────────────
+# Rounded box (╭─╮ │ ╰─╯) with the model in the top border. Lines of the answer are styled by kind:
+#   "⚠ ..."                      warning (orange)
+#   "  part  meaning"            indented with a two-space gap: the part is highlighted (cyan)
+#   anything else                summary text
+# BUBBLE_PLAIN=1 drops colors (zle -M prints escape sequences raw).
 bubble_colors() {
     if [[ "${BUBBLE_PLAIN:-0}" == 1 ]]; then
-        B="" T="" R=""
+        B="" T="" F="" W="" S="" R=""
     else
-        B=$'\e[38;2;189;147;249m' T=$'\e[1;38;2;80;250;123m' R=$'\e[0m'
+        B=$'\e[38;2;98;114;164m'    # border: Dracula comment
+        T=$'\e[1;38;2;189;147;249m' # title: purple, bold
+        F=$'\e[38;2;139;233;253m'   # flags / parts: cyan
+        W=$'\e[38;2;255;184;108m'   # warning: orange
+        S=$'\e[38;2;248;248;242m'   # text: foreground
+        R=$'\e[0m'
     fi
 }
 
@@ -73,49 +97,222 @@ repeat_char() {
     printf '%s' "${s// /$1}"
 }
 
-bubble_top() {
-    local width="$1" title=" 🤖 $2 " fill
-    bubble_colors
-    # 🤖 is two columns wide but one character.
-    fill=$((width - 4 - ${#title} - 1))
-    ((fill < 1)) && fill=1
-    printf '%s    ▄\n    █▙%s\n' "$B" "$R"
-    printf '%s▛▀▀%s%s%s%s▜%s\n' "$B" "$T" "$title" "$B" "$(repeat_char ▀ "$fill")" "$R"
+# Terminal columns of $1 -> $WIDTH_OUT. ${#s} counts characters, but emoji and CJK take two columns.
+text_width() {
+    local s="$1" i cp
+    WIDTH_OUT=${#s}
+    for ((i = 0; i < ${#s}; i++)); do
+        printf -v cp '%d' "'${s:i:1}"
+        if ((cp >= 0x1F300 || (cp >= 0x2E80 && cp <= 0xA4CF) || (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 0xF900 && cp <= 0xFAFF) || (cp >= 0xFF00 && cp <= 0xFF60) || cp == 0x2705 || cp == 0x274C || cp == 0x2728 || cp == 0x2B50)); then
+            WIDTH_OUT=$((WIDTH_OUT + 1))
+        fi
+    done
 }
 
-# Word-wrap stdin into bubble rows; reads line by line so streamed text shows up early.
-bubble_body() {
-    local width="$1" inner=$(($1 - 4)) line word row blank=false
+bubble_top() {
+    local width="$1" title="$2" fill
     bubble_colors
+    # ╭ ─ ␠ 🤖(2) ␠ title ␠ fill ╮ = 8 columns plus title and fill.
+    text_width "$title"
+    fill=$((width - 8 - WIDTH_OUT))
+    ((fill < 1)) && fill=1
+    printf '%s╭─ %s🤖 %s%s %s╮%s\n' "$B" "$T" "$title" "$B" "$(repeat_char ─ "$fill")" "$R"
+    ROW_COUNT=1
+}
+
+# card_row CONTENT CONTENT_COLUMNS - one box row, content padded to the inner width.
+# Uses $inner from bubble_body (dynamic scope).
+card_row() {
+    local pad=$((inner - $2))
+    ((pad < 0)) && pad=0
+    printf '%s│%s %s%*s %s│%s\n' "$B" "$R" "$1" "$pad" '' "$B" "$R"
+    ROW_COUNT=$((ROW_COUNT + 1))
+}
+
+# put_row PREFIX PREFIX_COLS TEXT TEXT_COLS COLOR
+put_row() {
+    local content="$1"
+    [[ -n "$3" ]] && content+="$5$3$R"
+    card_row "$content" "$(($2 + $4))"
+}
+
+# emit_wrapped TEXT COLOR LEAD LEAD_COLS HANG_COLS
+# Word-wraps TEXT into rows. The first row starts with LEAD (already styled), continuation
+# rows are indented by HANG_COLS so descriptions stay aligned.
+emit_wrapped() {
+    local text="$1" color="$2" prefix="$3" prefix_w="$4" hang_w="$5"
+    local avail row="" row_w=0 word ww
+    avail=$((inner - prefix_w))
+    for word in $text; do
+        text_width "$word"
+        ww=$WIDTH_OUT
+        if [[ -n "$row" ]] && ((row_w + 1 + ww > avail)); then
+            put_row "$prefix" "$prefix_w" "$row" "$row_w" "$color"
+            printf -v prefix '%*s' "$hang_w" ''
+            prefix_w=$hang_w
+            avail=$((inner - prefix_w))
+            row="" row_w=0
+        fi
+        # Hard-split words longer than a whole row (paths, URLs).
+        while ((ww > avail && avail > 0)); do
+            put_row "$prefix" "$prefix_w" "${word:0:avail}" "$avail" "$color"
+            printf -v prefix '%*s' "$hang_w" ''
+            prefix_w=$hang_w
+            avail=$((inner - prefix_w))
+            word="${word:avail}"
+            text_width "$word"
+            ww=$WIDTH_OUT
+        done
+        if [[ -n "$row" ]]; then
+            row+=" $word"
+            row_w=$((row_w + 1 + ww))
+        else
+            row="$word"
+            row_w=$ww
+        fi
+    done
+    put_row "$prefix" "$prefix_w" "$row" "$row_w" "$color"
+}
+
+# Splits one answer line into LINE_TEXT / LINE_INDENT. "  part  meaning" rows (indented, with a
+# two-space gap) also set LINE_FLAG / LINE_DESC and LINE_FW (the part's width in columns).
+parse_line() {
+    local line="${1//$'\t'/  }"
+    LINE_TEXT="${line#"${line%%[![:space:]]*}"}"
+    LINE_INDENT=$((${#line} - ${#LINE_TEXT}))
+    LINE_FLAG="" LINE_DESC="" LINE_FW=0
+    if ((LINE_INDENT > 0)) && [[ "$LINE_TEXT" == *"  "* && "$LINE_TEXT" != ⚠* ]]; then
+        LINE_FLAG="${LINE_TEXT%%  *}"
+        LINE_DESC="${LINE_TEXT#"$LINE_FLAG"}"
+        LINE_DESC="${LINE_DESC#"${LINE_DESC%%[![:space:]]*}"}"
+        text_width "$LINE_FLAG"
+        LINE_FW=$WIDTH_OUT
+    fi
+}
+
+# The small model sometimes "warns" that a command is safe. That is noise, not a warning.
+harmless_warning() {
+    local t="${1,,}" re
+    re='is safe|is harmless|does not (modify|change|delete|alter)|no risk|read-only|ist sicher|ist harmlos|(ändert|verändert|löscht) nichts|kein(e|en)? (risiko|gefahr)'
+    [[ "$t" =~ $re ]]
+}
+
+# Reads the whole answer from stdin into ORDERED (one element per line). ⚠ lines move right below
+# the summary, wherever the model put them (small models do not reliably keep the order). The
+# summary ends at the first blank or indented line.
+order_answer() {
+    local line text phase=0 lone_warn=false
+    local -a summary=() warns=() rest=()
     while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ -z "${line//[[:space:]]/}" ]]; then
-            # Collapse runs of blank lines into one empty bubble row.
-            $blank && continue
+        text="${line#"${line%%[![:space:]]*}"}"
+        # A lone "⚠" with the text on the next line: join them.
+        if $lone_warn; then
+            [[ -z "$text" ]] && continue
+            text="⚠ $text"
+            lone_warn=false
+        elif [[ "$text" =~ ^⚠[[:space:]]*$ ]]; then
+            lone_warn=true
+            continue
+        fi
+        if [[ "$text" == ⚠* ]]; then
+            harmless_warning "$text" || warns+=("$text")
+        elif ((phase == 0)) && [[ -z "$text" ]]; then
+            phase=1
+        elif ((phase == 0)) && [[ "$line" != [[:space:]]* ]]; then
+            summary+=("$line")
+        else
+            phase=1
+            rest+=("$line")
+        fi
+    done
+    ORDERED=("${summary[@]}")
+    ((${#warns[@]})) && ORDERED+=("" "${warns[@]}")
+    ORDERED+=("" "${rest[@]}")
+    # No trailing blank rows before the bottom border.
+    while ((${#ORDERED[@]})) && [[ -z "${ORDERED[-1]//[[:space:]]/}" ]]; do
+        unset 'ORDERED[-1]'
+    done
+}
+
+# Header section of the card: the command (at most 5 lines, hard-wrapped so spacing is kept),
+# one dim row per resolved shortcut, and a separator.
+bubble_command() {
+    local width="$1" cmd="$2" inner=$(($1 - 4)) line lead chunk n=0
+    bubble_colors
+    while IFS= read -r line; do
+        if ((++n > 5)); then
+            card_row "  ${B}…${R}" 3
+            break
+        fi
+        line="${line//$'\t'/  }"
+        lead="${T}❯${R} "
+        while :; do
+            chunk="${line:0:inner-2}"
+            card_row "$lead$S$chunk$R" "$((2 + ${#chunk}))"
+            line="${line:inner-2}"
+            [[ -z "$line" ]] && break
+            lead="  "
+        done
+    done <<<"$cmd"
+    # What the shortcuts in the command stand for (see command_context).
+    local item
+    for item in "${CTX_DISPLAY[@]}"; do
+        emit_wrapped "$item" "$B" "$B↳$R " 2 2
+    done
+    printf '%s├%s┤%s\n' "$B" "$(repeat_char ─ "$((width - 2))")" "$R"
+    ROW_COUNT=$((ROW_COUNT + 1))
+}
+
+# Draws the answer as box rows. It reads everything first: parts are aligned in one common column
+# (the widest part that still fits beside its meaning), long parts get a row of their own.
+bubble_body() {
+    local width="$1" inner=$(($1 - 4)) line cap colw=0 col lead pad blank=true
+    bubble_colors
+    order_answer
+    cap=$((inner * 2 / 5))
+    for line in "${ORDERED[@]}"; do
+        parse_line "$line"
+        [[ -n "$LINE_FLAG" ]] && ((LINE_FW <= cap - LINE_INDENT && LINE_FW > colw)) && colw=$LINE_FW
+    done
+    for line in "${ORDERED[@]}"; do
+        parse_line "$line"
+        if [[ -z "$LINE_TEXT" ]]; then
+            # Collapse runs of blank lines into one empty row, none at the top.
+            $blank || card_row "" 0
             blank=true
-            printf '%s▌%s%*s%s▐%s\n' "$B" "$R" "$((inner + 2))" '' "$B" "$R"
             continue
         fi
         blank=false
-        row=""
-        for word in $line; do
-            if [[ -n "$row" && $((${#row} + 1 + ${#word})) -gt $inner ]]; then
-                printf '%s▌%s %s%*s %s▐%s\n' "$B" "$R" "$row" "$((inner - ${#row}))" '' "$B" "$R"
-                row=""
+        printf -v lead '%*s' "$LINE_INDENT" ''
+        if [[ "$LINE_TEXT" == ⚠* ]]; then
+            emit_wrapped "$LINE_TEXT" "$W" "" 0 2
+        elif [[ -n "$LINE_FLAG" ]]; then
+            col=$((LINE_INDENT + colw + 2))
+            if ((LINE_FW <= cap - LINE_INDENT && inner - col >= 12)); then
+                printf -v pad '%*s' "$((colw - LINE_FW + 2))" ''
+                emit_wrapped "$LINE_DESC" "$S" "$lead$F$LINE_FLAG$R$pad" "$col" "$col"
+            else
+                # Long part (path, pipeline stage) or narrow pane: part on its own row, meaning below.
+                emit_wrapped "$LINE_FLAG" "$F" "$lead" "$LINE_INDENT" "$((LINE_INDENT + 2))"
+                if [[ -n "$LINE_DESC" ]]; then
+                    printf -v lead '%*s' "$((LINE_INDENT + 4))" ''
+                    emit_wrapped "$LINE_DESC" "$S" "$lead" "$((LINE_INDENT + 4))" "$((LINE_INDENT + 4))"
+                fi
             fi
-            # Hard-split words longer than a whole row (paths, URLs).
-            while ((${#word} > inner)); do
-                printf '%s▌%s %s %s▐%s\n' "$B" "$R" "${word:0:inner}" "$B" "$R"
-                word="${word:inner}"
-            done
-            row="${row:+$row }$word"
-        done
-        printf '%s▌%s %s%*s %s▐%s\n' "$B" "$R" "$row" "$((inner - ${#row}))" '' "$B" "$R"
+        else
+            emit_wrapped "$LINE_TEXT" "$S" "$lead" "$LINE_INDENT" "$LINE_INDENT"
+        fi
+    done
+    # Fill the rest of the pane (the bottom border is the last row), so the card always has the
+    # same height as the fzf preview.
+    while ((PAD_TO > 0 && ROW_COUNT < PAD_TO - 1)); do
+        card_row "" 0
     done
 }
 
 bubble_bottom() {
     bubble_colors
-    printf '%s▙%s▟%s\n' "$B" "$(repeat_char ▄ "$(($1 - 2))")" "$R"
+    printf '%s╰%s╯%s\n' "$B" "$(repeat_char ─ "$(($1 - 2))")" "$R"
 }
 
 bubble_width() {
@@ -136,29 +333,116 @@ cmd_bubble() {
     bubble_bottom "$width"
 }
 
+# Shortcuts the command depends on, so the model does not have to guess what `ll`, `lg` or a bare
+# folder name means. Sets CTX_DISPLAY (short lines shown in the card) and CTX_MODEL (prompt text).
+command_context() {
+    local cmd="$1" segs seg word sub def dir entries n
+    local -a seen=()
+    CTX_DISPLAY=()
+    CTX_MODEL=""
+
+    # A bare directory: zsh has AUTO_CD, so typing just the name means `cd` into it.
+    dir="${cmd#"${cmd%%[![:space:]]*}"}"
+    dir="${dir%"${dir##*[![:space:]]}"}"
+    dir=${dir//\\/}
+    dir=${dir#\"}
+    dir=${dir%\"}
+    dir=${dir#\'}
+    dir=${dir%\'}
+    dir="${dir/#\~/$HOME}"
+    if [[ -n "$dir" && -d "$dir" ]]; then
+        # shellcheck disable=SC2012 # display text only: ls marks directories with /
+        n="$(ls -A -- "$dir" 2>/dev/null | wc -l)"
+        # shellcheck disable=SC2012 # same here
+        entries="$(ls -Ap -- "$dir" 2>/dev/null | head -n 15 | tr '\n' ' ')"
+        CTX_DISPLAY+=("directory with $n entries - zsh AUTO_CD: changes into it")
+        CTX_MODEL+="- \"$dir\" is an existing directory with $n entries (first ones, / marks directories: ${entries% }). Typing only a directory name changes into it (zsh AUTO_CD)."$'\n'
+        return
+    fi
+
+    # First word of every command in a pipeline / list; skip assignments and wrappers.
+    segs="${cmd//&&/$'\n'}"
+    segs="${segs//||/$'\n'}"
+    segs="${segs//|/$'\n'}"
+    segs="${segs//;/$'\n'}"
+    while IFS= read -r seg; do
+        # shellcheck disable=SC2086 # word splitting is intended; globbing is off (set -f)
+        set -- $seg
+        while (($# > 0)) && [[ "$1" == *=* || "$1" == sudo || "$1" == command || "$1" == time || "$1" == noglob || "$1" == nocorrect || "$1" == exec ]]; do
+            shift
+        done
+        word="${1:-}"
+        sub="${2:-}"
+        [[ "$word" =~ ^[A-Za-z0-9_.:+-]+$ ]] || continue
+        [[ " ${seen[*]:-} " == *" $word "* ]] && continue
+        seen+=("$word")
+
+        def="$(awk -v w="$word" 'index($0, w "=") == 1 {print substr($0, length(w) + 2); exit}' "$CONTEXT_DIR/aliases" 2>/dev/null)"
+        if [[ -n "$def" ]]; then
+            def=${def#\'}
+            def=${def%\'}
+            CTX_DISPLAY+=("alias $word → $def")
+            CTX_MODEL+="- \`$word\` is the user's own zsh alias for: $def"$'\n'
+            continue
+        fi
+        def="$(awk -v w="$word" '$1 == w && $2 == "()" {p = 1} p {print; n++; if (/^}/ || n >= 12) exit}' "$CONTEXT_DIR/functions" 2>/dev/null)"
+        if [[ -n "$def" ]]; then
+            CTX_DISPLAY+=("function $word (your own shell function)")
+            CTX_MODEL+="- \`$word\` is the user's own zsh function:"$'\n'"$def"$'\n'
+            continue
+        fi
+        if [[ "$word" == git && "$sub" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            def="$(git config --get "alias.$sub" 2>/dev/null)"
+            if [[ -n "$def" ]]; then
+                CTX_DISPLAY+=("git alias $sub → $def")
+                CTX_MODEL+="- \`git $sub\` is the user's own git alias for: git $def"$'\n'
+            fi
+        fi
+    done <<<"$segs"
+}
+
 cmd_explain() {
     local quiet=false
     if [[ "${1:-}" == -q ]]; then
         quiet=true
         shift
     fi
-    local cmd="${1:-}" active model keep key cache tmp
-    # Show at most 5 lines of long multi-line commands so the bubble stays in view.
-    if ! $quiet; then
-        head -n 5 <<<"$cmd"
-        (($(wc -l <<<"$cmd") > 5)) && printf '…\n'
+    local cmd="${1:-}" active model keep key cache tmp parts tokens pipes prompt
+    # Big command: several lines, very long, or a long pipeline.
+    pipes="${cmd//[^|]/}"
+    if (($(wc -l <<<"$cmd") > 1 || ${#cmd} > OLLAMA_AI_LONG_CHARS || ${#pipes} >= 3)); then
+        parts=$OLLAMA_AI_PARTS_LONG
+        tokens=$OLLAMA_AI_TOKENS_LONG
+    else
+        parts=$OLLAMA_AI_PARTS_SHORT
+        tokens=$OLLAMA_AI_TOKENS_SHORT
+    fi
+    command_context "$cmd"
+    local width
+    if [[ -n "${FZF_PREVIEW_COLUMNS:-}" ]]; then
+        # fzf preview: use the whole pane, top to bottom.
+        width=$FZF_PREVIEW_COLUMNS
+        PAD_TO=${FZF_PREVIEW_LINES:-0}
+    else
+        width="$(bubble_width 80)"
     fi
     if ! active="$(active_model)"; then
         $quiet && return 3
+        # No model on: same card, with the command and a hint instead of an answer.
+        bubble_top "$width" "no local AI"
+        bubble_command "$width" "$cmd"
+        printf 'Press Ctrl+, to switch on a local model.\n' | bubble_body "$width"
+        bubble_bottom "$width"
         return 0
     fi
     model="$(cut -f1 <<<"$active")"
     keep="$(cut -f2 <<<"$active")"
 
-    local width
-    width="$(bubble_width "${FZF_PREVIEW_COLUMNS:-80}")"
-    $quiet || bubble_top "$width" "$model"
-    key="$(printf '%s\0%s\0%s' "$model" "$OLLAMA_AI_LANG" "$cmd" | sha1sum | cut -c1-40)"
+    if ! $quiet; then
+        bubble_top "$width" "$model"
+        bubble_command "$width" "$cmd"
+    fi
+    key="$(printf '%s\0%s\0%s\0%s\0%s' "$PROMPT_VERSION" "$parts/$tokens" "$model" "$OLLAMA_AI_LANG" "$cmd$CTX_MODEL" | sha1sum | cut -c1-40)"
     cache="$CACHE_DIR/$key"
     if [[ -f "$cache" ]]; then
         if $quiet; then
@@ -172,10 +456,13 @@ cmd_explain() {
 
     mkdir -p "$CACHE_DIR"
     tmp="$cache.tmp.$$"
-    # Streamed so the preview fills while the model writes; fzf kills us on focus change.
+    prompt="$cmd"
+    [[ -n "$CTX_MODEL" ]] && prompt="Command:"$'\n'"$cmd"$'\n\n'"Context about the user's shell:"$'\n'"$CTX_MODEL"
+    # The header (model, command) shows at once; the rows follow when the answer is complete,
+    # because aligning the parts needs all of them. fzf kills us on focus change.
     generate "$model" "$keep" true \
-        "You explain shell commands to an experienced Linux user. Answer in $OLLAMA_AI_LANG, plain text, no markdown. One short summary sentence, then at most 5 short lines on the important parts (flags, pipes, side effects). Start a line with ⚠ if the command deletes, overwrites or changes something irreversibly." \
-        "$cmd" '{"temperature":0.2,"num_predict":300}' \
+        "You explain shell commands to an experienced Linux user. Answer in $OLLAMA_AI_LANG, plain text, no markdown, no bullets. Format: first one short summary sentence. Only if the command deletes, overwrites or changes something irreversibly, add an empty line and one line starting with ⚠ that names the risk, directly after the summary and before the parts. Otherwise there is no ⚠ line at all; changing the directory or only listing/reading is no risk. Write the warning text on the same line as the ⚠. Then an empty line. Then at most $parts lines for the important parts (flags, pipes, side effects, and for scripts the main steps in order); each line starts with two spaces, then the part, then two spaces, then a short meaning, e.g. '  -r  recursive'. Nothing after the parts. The user's shell is zsh with AUTO_CD: typing only the path of a directory changes into it. If the message has a context section about the user's own aliases, functions or a directory, use it: say what the shortcut expands to, then explain the expanded command; for a bare directory say that it changes into it and what the directory holds." \
+        "$prompt" "{\"temperature\":0.2,\"num_predict\":$tokens}" \
         | jq --unbuffered -j '.response // empty' | tee "$tmp" \
         | if $quiet; then cat; else bubble_body "$width"; fi
     local status="${PIPESTATUS[0]}"
@@ -217,9 +504,15 @@ Partial input: $buffer" \
 
 case "${1:-}" in
     active) cmd_active ;;
-    explain) shift; cmd_explain "$@" ;;
+    explain)
+        shift
+        cmd_explain "$@"
+        ;;
     complete) cmd_complete "${2:-}" "${3:-}" ;;
-    bubble) shift; cmd_bubble "$@" ;;
+    bubble)
+        shift
+        cmd_bubble "$@"
+        ;;
     *)
         echo "usage: ollama-ai active | explain CMD | complete BUFFER [CWD] <history" >&2
         exit 2

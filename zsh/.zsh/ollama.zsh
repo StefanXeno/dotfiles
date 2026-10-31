@@ -91,8 +91,9 @@ fi
 
 # Ctrl+. — explain the current command line with the active local model.
 # Windows Terminal sends CSI-u "\e[46;5u" (tmux re-sends it). A spinner runs behind the
-# cursor while the answer streams into a speech bubble below the prompt (plain: zle -M
-# prints colors raw); any key cancels and is replayed.
+# cursor while the answer streams into an uncolored box below the prompt (zle -M prints
+# colors raw); when done, the colored box is printed into the scrollback. Any key cancels
+# and is replayed.
 # Grey hint text behind the cursor (same style as zsh-autosuggestions).
 _ollama_postdisplay() {
     # shellcheck disable=SC2034 # POSTDISPLAY/region_highlight are read by zle
@@ -114,8 +115,39 @@ _ollama_cancel_autosuggest() {
     return 0
 }
 
+# ollama-ai runs as a separate bash process and cannot see this shell's aliases and functions.
+# Write them where it can read them, so `ll`, `lg` or your own functions get explained correctly.
+# Only functions from ~/.zsh/ and ~/.zshrc* are kept (not oh-my-zsh's hundreds of internals).
+_ollama_ai_refresh_context() {
+    zmodload zsh/parameter 2>/dev/null
+    local dir="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-context" f
+    mkdir -p "$dir" || return 0
+    alias >"$dir/aliases.$$"
+    # shellcheck disable=SC2296,SC2154 # zsh-only: functions_source comes from zsh/parameter
+    for f in ${(k)functions_source}; do
+        [[ "$f" == _* ]] && continue
+        [[ "${functions_source[$f]}" == $HOME/.zsh/* || "${functions_source[$f]}" == $HOME/.zshrc* ]] || continue
+        functions -- "$f"
+    done >"$dir/functions.$$"
+    mv -f "$dir/aliases.$$" "$dir/aliases"
+    mv -f "$dir/functions.$$" "$dir/functions"
+}
+
+# After the first prompt (so .zshrc.local and mise are loaded): refresh once, in the background.
+_ollama_ai_context_once() {
+    # nomonitor: no "[1] 12345" job notice when the shell starts.
+    setopt localoptions nomonitor
+    add-zsh-hook -d precmd _ollama_ai_context_once
+    (_ollama_ai_refresh_context) & disown
+}
+if [[ -o interactive ]]; then
+    autoload -Uz add-zsh-hook
+    add-zsh-hook precmd _ollama_ai_context_once
+fi
+
 _ollama_explain_widget() {
     [[ -n "$BUFFER" ]] || return
+    _ollama_ai_refresh_context
     _ollama_cancel_autosuggest
     # No "[1] 12345" job notices inside zle.
     setopt localoptions nomonitor nonotify
@@ -147,7 +179,17 @@ _ollama_explain_widget() {
         fi
     done
     _ollama_postdisplay ""
-    zle -M "$(ollama-ai bubble --plain "$COLUMNS" "$model" <"$out_file")"
+    if [[ -s "$out_file" ]]; then
+        # Final answer: colored box printed above the next prompt, so it stays in the scrollback
+        # (zle -M can only show uncolored, ephemeral text). zle -I moves below the command line;
+        # zle -R then redraws the prompt underneath. Not "zle reset-prompt": it moves the cursor up
+        # by the prompt height first and would overwrite the last rows of the box.
+        zle -I
+        ollama-ai bubble "$COLUMNS" "$model" <"$out_file"
+        zle -R
+    else
+        zle -M "⚠ no answer from $model"
+    fi
     rm -f "$out_file"
 }
 

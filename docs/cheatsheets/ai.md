@@ -7,9 +7,10 @@ Ollama runs on the Windows host, opencode in WSL. Everything uses the model that
 | Action | Keys | What it does |
 |---|---|---|
 | Ollama menu | `Ctrl+,` | Open the model menu: live status preview, switch models on/off, keep-alive, opencode default |
-| Explain command | `Ctrl+.` | Explain the current command line in a speech bubble below the prompt (any key cancels) |
+| Explain command | `Ctrl+.` | Explain the current command line in a colored box that stays in the scrollback (any key cancels while it is generating) |
 | Start opencode | `Ctrl+O` | Open opencode in the current directory (a half-typed line comes back afterwards) |
 | Explain history entry | `Ctrl+R` | The history preview explains the focused command when a model is on |
+| Scroll history preview | `Shift+↑` / `Shift+↓` | Scroll the explanation in the `Ctrl+R` preview (`Ctrl+/` toggles it) |
 | Accept AI suggestion | `→` / `End` | Accept the grey autosuggestion (history first, then the local AI completes the line) |
 
 ## Ollama menu (Ctrl+,)

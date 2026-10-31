@@ -106,15 +106,18 @@ has_tools() {
 
 # Set opencode's default model; registers the model in the ollama provider if missing.
 cmd_default() {
-    local name="${1:?model name required}" ctx tmp
+    local name="${1:?model name required}" ctx tmp config
     [[ -f "$OPENCODE_CONFIG" ]] || die "opencode config not found: $OPENCODE_CONFIG"
+    # The config is a stow symlink into the dotfiles repo: write through it,
+    # otherwise mv would replace the link with a plain file.
+    config="$(readlink -f "$OPENCODE_CONFIG")"
     ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
         | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072')"
-    tmp="$(mktemp "${OPENCODE_CONFIG}.XXXXXX")"
+    tmp="$(mktemp "${config}.XXXXXX")"
     jq --arg n "$name" --argjson ctx "${ctx:-131072}" '
         .model = "ollama/" + $n
         | .provider.ollama.models[$n] //= {name: $n, limit: {context: $ctx, output: 16384}}
-    ' "$OPENCODE_CONFIG" >"$tmp" && mv "$tmp" "$OPENCODE_CONFIG" || return 1
+    ' "$config" >"$tmp" && chmod --reference="$config" "$tmp" && mv "$tmp" "$config" || return 1
     # opencode 2 keeps a background service with a cached config.
     if command -v opencode >/dev/null; then
         opencode reload >/dev/null 2>&1 || true
@@ -127,7 +130,7 @@ cmd_default() {
 start_opencode() {
     cmd_default "$1" || return 0
     printf 'opencode\n' >"$OLLAMA_MENU_CMD_FILE"
-    return 1  # close the menu
+    return 1 # close the menu
 }
 
 # Preview pane: live status + details for a model, short help for action rows.
@@ -437,7 +440,10 @@ case "${1:-menu}" in
     down) cmd_down ;;
     load) cmd_up && cmd_load "${2:-}" ;;
     unload) cmd_unload "${2:-}" ;;
-    status) api_up || die "Ollama unreachable at $OLLAMA_URL"; cmd_status ;;
+    status)
+        api_up || die "Ollama unreachable at $OLLAMA_URL"
+        cmd_status
+        ;;
     info) cmd_info "${2:-}" "${3:-}" ;;
     default) cmd_default "${2:-}" ;;
     # Internal fzf callbacks (see "fzf callbacks" above).

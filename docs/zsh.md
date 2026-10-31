@@ -79,7 +79,7 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 | Keys / Command | Action |
 |---|---|
 | `Ctrl+,` | Ollama menu: model list with live status preview — `Enter` opens model options, `Ctrl+O` toggles on/off |
-| `Ctrl+.` | Explain the current command line with the active model (speech bubble below the prompt) |
+| `Ctrl+.` | Explain the current command line with the active model (colored box, stays in the scrollback) |
 | `Ctrl+O` | Start opencode in the current directory |
 | `Enter` / `Ctrl+O` / `Esc` | In the menu: model options / quick on/off / back or close |
 | `ollama-menu status` | List models (`●` = loaded) |
@@ -95,11 +95,14 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 
 Uses only the model that is switched on (never loads one) and keeps its keep-alive:
 
-- **Ctrl+R preview** — `ollama-ai explain` streams an explanation of the focused command into an 8-bit style speech bubble (cached in `~/.cache/dotfiles/ollama-explain`).
-- **Ctrl+.** — explains the current command line in a speech bubble below the prompt (no colors: `zle -M` prints escape codes raw); a spinner runs behind the cursor, any key cancels. Without an active model it says so behind the cursor.
+- **Ctrl+R preview** — `ollama-ai explain` streams an explanation of the focused command into a rounded, colored box (cached in `~/.cache/dotfiles/ollama-explain`).
+- **Ctrl+.** — explains the current command line: a spinner runs behind the cursor while the answer streams uncolored below the prompt (`zle -M` prints escape codes raw), then the colored box is printed into the scrollback; any key cancels. Without an active model it says so behind the cursor.
 - **Autosuggestions** — `ZSH_AUTOSUGGEST_STRATEGY=(history ollama)`: when history has no match, the model completes the line from this session's recent commands (debounced, async, cancelled on the next key).
 - **opencode web search** — `OPENCODE_ENABLE_EXA=1` enables the `websearch` tool (Exa, no API key; queries leave the machine). The wrapper syncs it and `OLLAMA_WIN_HOST` into the opencode background service env.
 - `OLLAMA_AI_LANG` sets the explanation language (default English).
+- **Your shortcuts** — `ollama.zsh` writes your aliases and the functions from `~/.zsh/` / `~/.zshrc*` to `~/.cache/dotfiles/ollama-context/` (once after the first prompt, and before every `Ctrl+.`). `ollama-ai` looks up the first word of every command in a pipeline/list there, plus `git` aliases from `.gitconfig`, and hands the definitions to the model. The card shows them as `↳ alias lg → lazygit`. Typing only a directory name is understood as zsh `AUTO_CD` (`cd`), together with a short listing of the directory.
+- **Ctrl+R layout** — the preview sits below the list and takes the space left after `FZF_HISTORY_LIST_ROWS` list rows (default 10), but never more than half of the screen (and at least 8 rows); the card is drawn exactly that tall and as wide as the pane. The header and command appear at once, the explanation when the model is done.
+- **Answer size** — short commands get up to 5 parts / 300 tokens; "big" ones (several lines, more than 120 characters, or 3+ pipes) get up to 14 parts / 1000 tokens. Tune with `OLLAMA_AI_PARTS_SHORT`, `OLLAMA_AI_PARTS_LONG`, `OLLAMA_AI_TOKENS_SHORT`, `OLLAMA_AI_TOKENS_LONG` and `OLLAMA_AI_LONG_CHARS` (e.g. in `~/.zshrc.local`).
 
 ### Ctrl+, key path
 
