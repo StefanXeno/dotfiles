@@ -30,7 +30,7 @@ Prefix is **Ctrl+a**.
 |---|---|---|
 | Split horizontal | `prefix` + `\` | Split the current pane side by side |
 | Split vertical | `prefix` + `-` | Split the current pane top and bottom |
-| Select pane | `Alt` + arrow keys | Move focus to the pane in that direction |
+| Select pane | `Alt` + arrow keys or `Alt` + `h`/`j`/`k`/`l` | Move focus to the pane in that direction |
 | Rotate panes backwards | `Alt` + `Shift` + `←` or `prefix` + `<` | Rotate pane positions counter-clockwise |
 | Rotate panes forwards | `Alt` + `Shift` + `→` or `prefix` + `>` | Rotate pane positions clockwise |
 | Re-tile panes | `prefix` + `t` | Reset all panes in the window to an even tiled layout |
