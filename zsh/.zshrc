@@ -77,7 +77,7 @@ if command -v kxd &>/dev/null; then
     eval "$(kxd init zsh)"
 fi
 
-# fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Ctrl+K → kxd; Alt+H → cheatsheets.zsh)
+# fzf shell integration (fzf 0.48+) — Ctrl+R, Ctrl+T, Alt+C (Ctrl+K → kxd; Ctrl+H → cheatsheets.zsh)
 # Requires a TTY — skip in scripts/CI (avoids "can't change option: zle").
 if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
     eval "$(fzf --zsh)"

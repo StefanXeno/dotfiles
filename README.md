@@ -25,20 +25,20 @@ dotfiles/
 ├── zsh/
 │   ├── .zshrc                  # Shell orchestrator — sources ~/.zsh/*.zsh modules
 │   ├── bin/
-│   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Alt+H
+│   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Ctrl+H
 │   │   └── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
 │       ├── aliases.zsh         # Aliases and kubectl wrapper (`k`)
 │       ├── tmux.zsh            # tmux helpers: ta, tn, tl
-│       ├── cheatsheets.zsh     # cs / cso / Alt+H cheatsheet search
+│       ├── cheatsheets.zsh     # cs / cso / Ctrl+H cheatsheet search
 │       ├── completions.zsh     # Lazy-loaded tool completions
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
 │   └── .tmux.conf
 ├── docs/
-│   ├── cheatsheets/            # Commands & aliases only (used by cs / Alt+H)
+│   ├── cheatsheets/            # Commands & aliases only (used by cs / Ctrl+H)
 │   │   ├── tmux.md
 │   │   ├── zsh-fzf.md
 │   │   └── git.md
@@ -68,7 +68,7 @@ stow -D -t "$HOME" zsh               # remove only zsh config
 
 ## 📖 Cheatsheets
 
-Quick command reference (searchable via `cs` / `Alt+H`):
+Quick command reference (searchable via `cs` / `Ctrl+H`):
 
 - [tmux](docs/cheatsheets/tmux.md) — shell commands
 - [zsh](docs/cheatsheets/zsh-fzf.md) — aliases and helpers
@@ -114,7 +114,7 @@ exec zsh
 tmux
 ```
 
-Cheatsheets (`cs` / `Alt+H`) read from `docs/cheatsheets/` in the dotfiles clone.
+Cheatsheets (`cs` / `Ctrl+H`) read from `docs/cheatsheets/` in the dotfiles clone.
 `install.sh` sets `DOTFILES_DIR` in `~/.zshrc.local`; override if your clone lives elsewhere.
 
 ## 🔐 Private / Machine-Specific Config

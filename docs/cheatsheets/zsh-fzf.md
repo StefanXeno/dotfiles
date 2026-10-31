@@ -26,7 +26,7 @@
 | `tl` | List tmux sessions in fzf and attach to the selected one |
 | `tn [name]` | Create a new tmux session, or attach if the name already exists |
 | `ta [name]` | Attach to a tmux session, or open an fzf picker when called without a name |
-| `cs [query]` | Fuzzy-search cheatsheet commands and aliases (`Alt+H`) |
+| `cs [query]` | Fuzzy-search cheatsheet commands and aliases (`Ctrl+H`) |
 | `cso` | Pick a cheatsheet markdown file and open it in `bat` |
 
 ## fzf
@@ -37,7 +37,7 @@
 | Find files | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
 | Switch kubeconfig | `Ctrl+K` | fzf picker for kubeconfigs; preview shows contexts/namespaces |
 | Find directory | `Alt+C` | Fuzzy-find directories and `cd` into the selection |
-| Search cheatsheets | `Alt+H` | Open the `cs` cheatsheet picker from the shell prompt |
+| Search cheatsheets | `Ctrl+H` | Open the `cs` cheatsheet picker from the shell prompt |
 
 ## k9s
 

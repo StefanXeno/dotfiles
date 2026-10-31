@@ -1,5 +1,5 @@
 ---
-description: Cheatsheet markdown format, parser contract, and cs/Alt+H integration
+description: Cheatsheet markdown format, parser contract, and cs/Ctrl+H integration
 globs: docs/cheatsheets/**,zsh/.zsh/cheatsheets.zsh,zsh/bin/cs-parse-cheatsheets.awk
 alwaysApply: false
 ---
@@ -9,7 +9,7 @@ alwaysApply: false
 ## Flow
 
 ```
-docs/cheatsheets/*.md → cs-parse-cheatsheets.awk → TSV cache → fzf (cs / Alt+H)
+docs/cheatsheets/*.md → cs-parse-cheatsheets.awk → TSV cache → fzf (cs / Ctrl+H)
 ```
 
 Cheatsheets are **not** stowed — they read from `$DOTFILES_DIR/docs/cheatsheets`.

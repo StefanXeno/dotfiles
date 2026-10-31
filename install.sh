@@ -417,7 +417,7 @@ create_local_templates() {
 EOF
         cat >> "$HOME/.zshrc.local" << EOF
 
-# --- Dotfiles path (for cs / Alt+H cheatsheet search) ---
+# --- Dotfiles path (for cs / Ctrl+H cheatsheet search) ---
 export DOTFILES_DIR="$DOTFILES_DIR"
 EOF
         log "Created ${HOME}/.zshrc.local"
@@ -426,7 +426,7 @@ EOF
             info "Adding DOTFILES_DIR to ~/.zshrc.local..."
             cat >> "$HOME/.zshrc.local" << EOF
 
-# --- Dotfiles path (for cs / Alt+H cheatsheet search) ---
+# --- Dotfiles path (for cs / Ctrl+H cheatsheet search) ---
 export DOTFILES_DIR="$DOTFILES_DIR"
 EOF
             log "Updated ${HOME}/.zshrc.local with DOTFILES_DIR"

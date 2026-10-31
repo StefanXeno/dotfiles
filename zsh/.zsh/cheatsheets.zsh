@@ -167,7 +167,7 @@ cso() {
     less -R "$dir/$file"
 }
 
-# Alt+H — fzf cheatsheet search (same family as Ctrl+R / Ctrl+T / Alt+C).
+# Ctrl+H — fzf cheatsheet search (same family as Ctrl+R / Ctrl+T / Alt+C).
 # shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
 _fzf_cheatsheet_widget() {
     local run_cmd
@@ -183,7 +183,7 @@ _fzf_cheatsheet_widget() {
 
 if [[ -o interactive && -t 0 && -o zle ]]; then
     zle -N _fzf_cheatsheet_widget
-    bindkey '\eh' _fzf_cheatsheet_widget
+    bindkey '^H' _fzf_cheatsheet_widget
 fi
 
 _cs_warm_cache

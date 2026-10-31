@@ -38,7 +38,7 @@ for _zsh_module in options fzf aliases tmux completions k9s-functions cheatsheet
 ```
 
 - Add new modules to this loop — do not `source` ad-hoc elsewhere in `.zshrc`.
-- `cheatsheets` last among modules (registers Alt+H widget after fzf opts are set).
+- `cheatsheets` last among modules (registers Ctrl+H widget after fzf opts are set).
 
 ## New zsh files
 

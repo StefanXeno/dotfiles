@@ -31,7 +31,7 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
 | `Ctrl+K` | fzf kubeconfig picker via `kxd` (replaces default kill-line) |
 | `Alt+C` | Fuzzy-find directories and `cd` into selection |
-| `Alt+H` | Search dotfiles cheatsheets (`cs`) |
+| `Ctrl+H` | Search dotfiles cheatsheets (`cs`) |
 
 ### Inside any fzf prompt
 
@@ -65,7 +65,7 @@ Update them by bumping `OMZ_CUSTOM_PLUGIN_REFS` and re-running `install.sh`.
 
 - Preview shows `tree` of selected directory
 
-### Alt+H (cheatsheets)
+### Ctrl+H (cheatsheets)
 
 - Structured search: `git: Aliases - git st`
 - Preview shows the command on top and a longer description below

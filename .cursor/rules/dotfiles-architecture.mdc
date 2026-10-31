@@ -15,7 +15,7 @@ alwaysApply: true
 
 These live only in the repo clone (see `.stow-global-ignore`): `docs/`, `test/`, `install.sh`, `README.md`, `.github/`.
 
-`docs/cheatsheets/` is **not** symlinked — `cs` / `Alt+H` need `DOTFILES_DIR` (default `~/dotfiles`, set in `~/.zshrc.local` by `install.sh`).
+`docs/cheatsheets/` is **not** symlinked — `cs` / `Ctrl+H` need `DOTFILES_DIR` (default `~/dotfiles`, set in `~/.zshrc.local` by `install.sh`).
 
 ## Secrets and local overrides
 
