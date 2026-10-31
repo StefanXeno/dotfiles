@@ -27,7 +27,7 @@ repos:
         name: shellcheck (bash scripts)
         entry: shellcheck -x
         language: system
-        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage))$
+        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$
 
       # Same list as .github/workflows/shellcheck.yml — bash-compatible zsh modules only.
       - id: shellcheck-zsh-modules
@@ -40,4 +40,4 @@ repos:
         name: shfmt (options from .editorconfig)
         entry: shfmt -d
         language: system
-        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage))$
+        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$

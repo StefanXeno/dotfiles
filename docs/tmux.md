@@ -46,3 +46,9 @@ Mouse support is enabled — click to focus panes/windows, scroll in panes, drag
 ## New panes
 
 New panes open in the current working directory automatically (via `-c "#{pane_current_path}"` in `~/.tmux.conf`).
+
+## Status bar
+
+`status-right` is built by the Dracula theme; `tmux.conf` appends the output of `~/bin/tmux-ai-status` after it:
+Claude Code usage (orange) and the Ollama model that is loaded (purple). A segment is only drawn while it exists.
+Outside tmux the same two values appear in the starship prompt.

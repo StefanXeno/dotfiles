@@ -30,6 +30,7 @@ dotfiles/
 │   │   ├── ollama-menu               # Ollama model toggle menu (Ctrl+,)
 │   │   ├── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
 │   │   ├── claude-usage              # Claude 5h rate-limit usage for the starship prompt
+│   │   ├── tmux-ai-status            # Claude usage + loaded Ollama model as tmux status segments
 │   │   └── wt-settings               # Sync Windows Terminal settings.json (push/pull)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment

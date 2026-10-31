@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# tmux status-right segments: Claude Code usage and the local Ollama model, in the Dracula theme's
+# segment style. A part that does not exist prints nothing - including its colored background -
+# so with no usage and no model loaded the bar shows nothing extra. Inside tmux, starship hides
+# the same two prompt modules (see starship/.config/starship.toml).
+#
+#   status-right via tmux.conf:  #(~/bin/tmux-ai-status)
+set -uo pipefail
+
+# Resolve the real directory: ~/bin/tmux-ai-status is a stow symlink into the repo.
+HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+
+usage="$("$HERE/claude-usage" show 2>/dev/null)"
+model="$("$HERE/ollama-ai" active 2>/dev/null)"
+
+out=""
+# '#' starts a tmux format sequence, so literal ones in the text are doubled.
+[[ -n "$usage" ]] && out+="#[fg=#282a36,bg=#d97757] ✻ ${usage//#/##} "
+[[ -n "$model" ]] && out+="#[fg=#282a36,bg=#bd93f9] 󰧑 ${model//#/##} "
+[[ -n "$out" ]] && out+="#[default]"
+printf '%s' "$out"

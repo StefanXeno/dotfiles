@@ -1,5 +1,5 @@
 # Dev shortcuts for this repo. Tools (pre-commit, gitleaks, shellcheck, shfmt) come from mise.
-SHELL_FILES := install.sh $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage
+SHELL_FILES := install.sh $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status
 STOW_PACKAGES := $(shell sed -n 's/^STOW_PACKAGES=(\(.*\))/\1/p' install.sh)
 
 .DEFAULT_GOAL := help
