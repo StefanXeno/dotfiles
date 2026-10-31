@@ -49,6 +49,8 @@ New panes open in the current working directory automatically (via `-c "#{pane_c
 
 ## Status bar
 
-`status-right` is built by the Dracula theme; `tmux.conf` appends the output of `~/bin/tmux-ai-status` after it:
-Claude Code usage (orange) and the Ollama model that is loaded (purple). A segment is only drawn while it exists.
-Outside tmux the same two values appear in the starship prompt.
+`status-right`, left to right: local AI (Ollama model, purple), Claude Code usage (orange), power, network,
+weather, then date and time (`dd.mm.yyyy hh:mm`). The theme (Dracula) draws power to time in the order of
+`@dracula-plugins`; `tmux.conf` puts the output of `~/bin/tmux-ai-status` in front of them after the theme has
+run. The two AI segments are only drawn while they exist. Outside tmux the same two values appear in the
+starship prompt.
