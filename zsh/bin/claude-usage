@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Claude Code rate-limit usage for the starship prompt.
+#
+#   claude-usage record   Claude Code statusLine command: reads the session JSON on stdin and
+#                         stores the 5-hour window (used %, reset time) in a small cache file
+#   claude-usage show     print "42% 2h13m" for the prompt; prints nothing when the window has
+#                         no usage yet or already reset (so the prompt module disappears)
+#
+# Claude Code only exposes rate limits to the statusLine command, so the prompt shows the
+# state of the last Claude Code update — the reset time check keeps stale data from showing.
+set -uo pipefail
+
+CACHE_FILE="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/claude-usage.json"
+
+command -v jq >/dev/null || exit 0
+
+cmd_record() {
+    local input pct reset tmp
+    input="$(cat)"
+    pct="$(jq -r '.rate_limits.five_hour.used_percentage // empty' <<<"$input" 2>/dev/null)"
+    reset="$(jq -r '.rate_limits.five_hour.resets_at // empty' <<<"$input" 2>/dev/null)"
+    # No rate-limit data (API-key auth, first request of a session): keep the previous cache.
+    [[ -n "$pct" && -n "$reset" ]] || return 0
+    mkdir -p "$(dirname "$CACHE_FILE")"
+    tmp="$(mktemp "$CACHE_FILE.XXXXXX")"
+    if jq -nc --argjson p "$pct" --argjson r "$reset" '{used_percentage: $p, resets_at: $r}' >"$tmp"; then
+        mv "$tmp" "$CACHE_FILE"
+    else
+        rm -f "$tmp"
+    fi
+    # statusLine output is shown inside Claude Code itself.
+    printf '5h: %.0f%%\n' "$pct"
+}
+
+cmd_show() {
+    local pct reset now left
+    [[ -r "$CACHE_FILE" ]] || return 0
+    pct="$(jq -r '.used_percentage // 0 | floor' "$CACHE_FILE" 2>/dev/null)" || return 0
+    reset="$(jq -r '.resets_at // 0 | floor' "$CACHE_FILE" 2>/dev/null)" || return 0
+    now="$(date +%s)"
+    ((pct > 0 && reset > now)) || return 0
+    left=$((reset - now))
+    if ((left >= 3600)); then
+        printf '%d%% %dh%02dm\n' "$pct" $((left / 3600)) $((left % 3600 / 60))
+    else
+        printf '%d%% %dm\n' "$pct" $((left / 60 + 1))
+    fi
+}
+
+case "${1:-}" in
+    record) cmd_record ;;
+    show) cmd_show ;;
+    *)
+        echo "usage: claude-usage record|show" >&2
+        exit 2
+        ;;
+esac

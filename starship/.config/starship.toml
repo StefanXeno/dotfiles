@@ -29,3 +29,22 @@ disabled  = false
 disabled = false
 format   = '[$symbol ]($style)[$context( \($namespace\))]($style) '
 style    = 'cyan bold'
+
+# Claude Code 5-hour rate limit: "<used %> <time until reset>". Fed by `claude-usage record`
+# (Claude Code statusLine, see ~/.claude/settings.json); empty output hides the module,
+# i.e. when there has been no usage in the current window.
+[custom.claude]
+command = 'claude-usage show'
+when    = true
+format  = '([✻ $output]($style) )'
+style   = 'bold #d97757'
+shell   = ['bash', '--noprofile', '--norc']
+
+# Local AI: name of the model currently loaded in Ollama. Empty output (hidden) when
+# Ollama is off or no model is loaded.
+[custom.ollama]
+command = 'ollama-ai active'
+when    = true
+format  = '([󰧑 $output]($style) )'
+style   = 'bold #7aa2f7'
+shell   = ['bash', '--noprofile', '--norc']
