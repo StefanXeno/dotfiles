@@ -58,12 +58,12 @@ alias dcu="docker compose up -d"
 alias dcd="docker compose down"
 
 # --- Kubernetes ---
-# Function wrapper (not alias) so tab completion works for `k`
-if command -v kubectl &>/dev/null; then
-    k() {
-        command kubectl "$@"
-    }
-fi
+# Function wrapper (not alias) so tab completion works for `k`. Defined unconditionally: kubectl
+# comes from mise, which is activated after the modules load, so a `command -v` guard here would
+# hide `k` in a fresh shell.
+k() {
+    command kubectl "$@"
+}
 alias kc="kubectx"
 alias kns="kubens"
 

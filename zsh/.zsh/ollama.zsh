@@ -27,6 +27,11 @@ _opencode_sync_service_env() {
 # opencode wrapper: start Ollama if needed and preload the model in the background,
 # so the first answer does not wait for a cold model load.
 opencode() {
+    # `type -p` (zsh and bash) only finds the program: `command -v` would find this function.
+    if ! type -p opencode &>/dev/null; then
+        echo "opencode is not installed (https://opencode.ai)" >&2
+        return 127
+    fi
     local model="" prev="" arg
     for arg in "$@"; do
         case "$prev" in -m | --model) model="$arg" ;; esac
