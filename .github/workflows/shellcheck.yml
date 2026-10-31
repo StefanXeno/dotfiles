@@ -6,12 +6,18 @@ on:
       - '**.sh'
       - '**.zsh'
       - 'zsh/bin/notify-send'
+      - 'zsh/bin/ollama-menu'
+      - 'zsh/bin/ollama-ai'
+      - 'zsh/bin/wt-settings'
       - '.github/workflows/shellcheck.yml'
   pull_request:
     paths:
       - '**.sh'
       - '**.zsh'
       - 'zsh/bin/notify-send'
+      - 'zsh/bin/ollama-menu'
+      - 'zsh/bin/ollama-ai'
+      - 'zsh/bin/wt-settings'
       - '.github/workflows/shellcheck.yml'
 
 jobs:
@@ -32,7 +38,8 @@ jobs:
             zsh/.zsh/cheatsheets.zsh \
             zsh/.zsh/fzf.zsh \
             zsh/.zsh/k9s-functions.zsh \
+            zsh/.zsh/ollama.zsh \
             zsh/.zsh/tmux.zsh
 
-      - name: Run shellcheck on notify-send shim
-        run: shellcheck -x zsh/bin/notify-send
+      - name: Run shellcheck on zsh/bin scripts
+        run: shellcheck -x zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings

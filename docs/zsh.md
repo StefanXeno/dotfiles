@@ -1,6 +1,6 @@
 # zsh & fzf
 
-For commands and aliases, see [zsh Cheatsheet](cheatsheets/zsh-fzf.md) and [Local AI Cheatsheet](cheatsheets/ai.md).
+For commands and aliases, see [zsh Cheatsheet](cheatsheets/zsh-fzf.md), [Local AI Cheatsheet](cheatsheets/ai.md) and [Windows Terminal Cheatsheet](cheatsheets/windows-terminal.md).
 
 ## Oh My Zsh Plugins
 
@@ -108,3 +108,24 @@ Terminals do not send distinct sequences for `Ctrl+,` / `Ctrl+.`, and Windows Te
 1. **Windows Terminal** ([`windows-terminal/settings.json`](../windows-terminal/settings.json), action `User.sendInput.OllamaMenu`) sends CSI-u `\e[44;5u` instead of opening *Settings*.
 2. **tmux** parses it as `C-,` and would only pass `,` to the pane, so it re-sends the full sequence (`send-keys`).
 3. **zsh**: `ollama.zsh` binds `\e[44;5u` to a zle widget that runs `ollama-menu` inline (like `Ctrl+T`).
+
+## Windows Terminal settings
+
+`windows-terminal/settings.json` is the source of truth, but it is **not stowed** — Windows Terminal starts
+before WSL is guaranteed to be reachable, so a symlink into WSL is fragile. `wt-settings` syncs it instead
+(`install.sh` runs `push` on WSL):
+
+| Command | Action |
+|---|---|
+| `wt-settings` | Check whether live settings and repo match |
+| `wt-settings diff` | Show what differs (live → repo) |
+| `wt-settings push` | Repo → Windows (live file is backed up next to it) |
+| `wt-settings pull` | Windows → repo — run after changing settings in the Settings UI, then commit |
+
+## Local Overrides
+
+Machine-specific config goes in `~/.zshrc.local` (not tracked in git):
+
+```zsh
+# Work aliases, API keys, proxy settings, etc.
+```

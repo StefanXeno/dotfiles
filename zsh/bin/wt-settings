@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# Sync Windows Terminal settings.json between the dotfiles repo and Windows (WSL only).
+#
+#   wt-settings [status]   show whether repo and Windows differ (exit 1 if they do)
+#   wt-settings diff       unified diff: Windows (live) → repo
+#   wt-settings push       repo → Windows (backs up the live file first)
+#   wt-settings pull       Windows → repo (after changes in the Settings UI)
+#
+# Not a stow package: Windows Terminal cannot read files inside WSL reliably at startup,
+# so the repo copy is synced explicitly instead of symlinked.
+set -euo pipefail
+
+DOTFILES_DIR="${DOTFILES_DIR:-$HOME/dotfiles}"
+REPO_FILE="$DOTFILES_DIR/windows-terminal/settings.json"
+
+die() {
+    echo "wt-settings: $*" >&2
+    exit 1
+}
+
+# Resolve %LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_*\LocalState\settings.json
+win_file() {
+    if [[ -n "${WT_SETTINGS:-}" ]]; then
+        printf '%s\n' "$WT_SETTINGS"
+        return
+    fi
+    command -v cmd.exe >/dev/null || die "no Windows interop (not WSL?)"
+    local appdata match
+    # cmd.exe warns about UNC working directories — run it from a Windows path.
+    appdata="$(cd /mnt/c && cmd.exe /c 'echo %LOCALAPPDATA%' 2>/dev/null | tr -d '\r')"
+    [[ -n "$appdata" ]] || die "could not resolve %LOCALAPPDATA%"
+    for match in "$(wslpath -u "$appdata")"/Packages/Microsoft.WindowsTerminal_*/LocalState/settings.json; do
+        [[ -f "$match" ]] && printf '%s\n' "$match" && return
+    done
+    die "Windows Terminal settings.json not found (set WT_SETTINGS=/mnt/c/...)"
+}
+
+# Windows Terminal may write CRLF; compare and store with LF only.
+normalized() {
+    tr -d '\r' <"$1"
+}
+
+in_sync() {
+    diff -q <(normalized "$1") "$REPO_FILE" >/dev/null
+}
+
+cmd_status() {
+    local win="$1"
+    [[ -f "$REPO_FILE" ]] || die "repo copy missing: $REPO_FILE (run: wt-settings pull)"
+    if in_sync "$win"; then
+        echo "✓ in sync: $REPO_FILE"
+    else
+        echo "✗ differs — 'wt-settings diff' to inspect, then 'push' or 'pull'"
+        return 1
+    fi
+}
+
+cmd_diff() {
+    diff -u --label "Windows (live)" --label "repo" <(normalized "$1") "$REPO_FILE"
+}
+
+cmd_push() {
+    local win="$1" backup
+    [[ -f "$REPO_FILE" ]] || die "repo copy missing: $REPO_FILE"
+    if [[ -f "$win" ]] && in_sync "$win"; then
+        echo "✓ already in sync"
+        return
+    fi
+    if [[ -f "$win" ]]; then
+        backup="${win%.json}.backup-$(date +%Y%m%d-%H%M%S).json"
+        cp "$win" "$backup"
+        echo "Backup: $backup"
+    fi
+    cp "$REPO_FILE" "$win"
+    echo "✓ pushed repo → Windows Terminal (it reloads automatically)"
+}
+
+cmd_pull() {
+    local win="$1"
+    mkdir -p "${REPO_FILE%/*}"
+    normalized "$win" >"$REPO_FILE"
+    echo "✓ pulled Windows Terminal → $REPO_FILE"
+    git -C "$DOTFILES_DIR" --no-pager diff --stat -- "$REPO_FILE" 2>/dev/null || true
+}
+
+main() {
+    local win
+    win="$(win_file)"
+    case "${1:-status}" in
+        status) cmd_status "$win" ;;
+        diff) cmd_diff "$win" ;;
+        push) cmd_push "$win" ;;
+        pull) cmd_pull "$win" ;;
+        *) die "unknown command: $1 (status|diff|push|pull)" ;;
+    esac
+}
+
+main "$@"

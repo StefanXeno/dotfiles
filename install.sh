@@ -357,15 +357,41 @@ install_wsl_notify() {
     info "Test: notify-send \"Hello\" \"from WSL\""
 }
 
+# ---------- 6c. Windows Terminal Settings ----------
+
+# Not stowed: Windows Terminal cannot rely on a symlink into WSL at startup,
+# so the repo copy is pushed (with a backup of the live file) via wt-settings.
+install_windows_terminal() {
+    if ! is_wsl || is_docker; then
+        return
+    fi
+
+    section "Windows Terminal Settings"
+
+    local wt_settings="$DOTFILES_DIR/zsh/bin/wt-settings"
+
+    if "$wt_settings" status >/dev/null 2>&1; then
+        log "Windows Terminal settings already in sync — skipping."
+        return
+    fi
+
+    if ! "$wt_settings" push; then
+        warn "Could not sync Windows Terminal settings — run 'wt-settings push' manually."
+    fi
+}
+
 # ---------- 7. Stow Dotfiles ----------
 
 stow_dotfiles() {
     section "Stow Dotfiles"
 
     mkdir -p "$HOME/bin"
-    if [[ -f "$DOTFILES_DIR/zsh/bin/notify-send" ]]; then
-        chmod +x "$DOTFILES_DIR/zsh/bin/notify-send"
-    fi
+    local bin_script
+    for bin_script in notify-send ollama-menu ollama-ai wt-settings; do
+        if [[ -f "$DOTFILES_DIR/zsh/bin/$bin_script" ]]; then
+            chmod +x "$DOTFILES_DIR/zsh/bin/$bin_script"
+        fi
+    done
 
     for package in "${STOW_PACKAGES[@]}"; do
         info "Stowing: $package"
@@ -533,6 +559,7 @@ main() {
     install_starship
     install_tpm
     install_wsl_notify
+    install_windows_terminal
 
     create_local_templates
     set_default_shell

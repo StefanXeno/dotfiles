@@ -28,7 +28,8 @@ dotfiles/
 │   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Ctrl+H
 │   │   ├── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
 │   │   ├── ollama-menu               # Ollama model toggle menu (Ctrl+,)
-│   │   └── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
+│   │   ├── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
+│   │   └── wt-settings               # Sync Windows Terminal settings.json (push/pull)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
@@ -45,10 +46,13 @@ dotfiles/
 │   │   ├── tmux.md
 │   │   ├── zsh-fzf.md
 │   │   ├── ai.md               # Local AI: Ctrl+, / Ctrl+. / Ctrl+O, ollama-menu, opencode
+│   │   ├── windows-terminal.md # Windows Terminal shortcuts, wt-settings
 │   │   └── git.md
 │   ├── tmux.md                 # Full tmux key binding reference
 │   ├── zsh.md                  # Plugins, fzf bindings, shell options
 │   └── git.md                  # SSH signing setup, defaults, private config
+├── windows-terminal/
+│   └── settings.json           # Windows Terminal config (synced via wt-settings, not stowed)
 ├── starship/
 │   └── .config/
 │       └── starship.toml
