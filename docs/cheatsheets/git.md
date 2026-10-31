@@ -8,6 +8,15 @@
 | `git lg` | `git log --oneline --graph --decorate --all` | Display a compact graph of commits across all branches |
 | `git whoami` | `git config user.name && git config user.email` | Print the Git identity configured on this machine |
 
+## Tools
+
+| Task | Command | What it does |
+|---|---|---|
+| Git TUI | `lg` | Open lazygit (stage hunks, rebase, resolve conflicts) |
+| Scan history for secrets | `make secrets` | Run gitleaks over all commits and the working tree |
+| Run all repo checks | `make lint` | shellcheck, shfmt and gitleaks on every file |
+| Install git hooks | `make hooks` | Enable the pre-commit (staged) and pre-push (unpushed commits) secret scans |
+
 ## Stash & Branches
 
 | Task | Command | What it does |

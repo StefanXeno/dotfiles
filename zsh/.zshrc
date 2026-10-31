@@ -150,6 +150,11 @@ if [[ -o interactive && -t 0 && -o zle ]] \
     bindkey '^K' _kxd_file_switch_widget
 fi
 
+# zoxide — `z <dir>` jumps to frecent directories, `zi` picks one with fzf
+if [[ -o interactive ]] && command -v zoxide &>/dev/null; then
+    eval "$(zoxide init zsh)"
+fi
+
 # ============================================================
 # PROMPT
 # ============================================================

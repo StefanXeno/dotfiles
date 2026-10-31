@@ -44,6 +44,15 @@ fi
 
 alias sl="sl -alFe"
 
+# --- Modern CLI replacements (installed by mise, which is activated after this file loads,
+# so these are functions that check at call time instead of `command -v` guards) ---
+# OMZ ships ll/la as aliases, which would turn the function definitions below into parse errors.
+unalias ll la 2>/dev/null
+ll() { if command -v eza &>/dev/null; then eza -l --git --group-directories-first --icons=auto "$@"; else command ls -lh "$@"; fi; }
+la() { if command -v eza &>/dev/null; then eza -la --git --group-directories-first --icons=auto "$@"; else command ls -lAh "$@"; fi; }
+lt() { if command -v eza &>/dev/null; then eza --tree --level="${LT_LEVEL:-2}" --icons=auto "$@"; else tree -L "${LT_LEVEL:-2}" "$@"; fi; }
+alias lg="lazygit"
+
 # --- Docker ---
 alias dcu="docker compose up -d"
 alias dcd="docker compose down"

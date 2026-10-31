@@ -29,6 +29,23 @@
 
 [core]
     editor = vim
+    # delta when available (mise), plain less otherwise — git must work before/without it.
+    pager = "if command -v delta >/dev/null 2>&1; then delta; else less -FRX; fi"
+
+[interactive]
+    diffFilter = "if command -v delta >/dev/null 2>&1; then delta --color-only; else cat; fi"
+
+[delta]
+    navigate = true
+    line-numbers = true
+    side-by-side = false
+    syntax-theme = Dracula
+
+[merge]
+    conflictStyle = zdiff3
+
+[diff]
+    colorMoved = default
 
 [alias]
     st   = status

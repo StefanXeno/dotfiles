@@ -18,6 +18,10 @@
 | `gl` | `git pull` | Pull the current branch from its remote |
 | `jqq` | `$HOME/tools/jqq/jqq.rb` | Query JSON with the local jqq tool |
 | `bfg` | `java -jar $HOME/tools/bfg/bfg-1.14.0.jar` | Remove large files or secrets from Git history with BFG |
+| `ll` | `eza -l --git` | Long listing with git status per file (falls back to `ls -lh`) |
+| `la` | `eza -la --git` | Long listing including hidden files |
+| `lt` | `eza --tree --level=2` | Directory tree, 2 levels deep (`LT_LEVEL=3 lt` for more) |
+| `lg` | `lazygit` | Open the git TUI (diffs rendered through delta) |
 
 ## Commands
 
@@ -28,6 +32,9 @@
 | `ta [name]` | Attach to a tmux session, or open an fzf picker when called without a name |
 | `cs [query]` | Fuzzy-search cheatsheet commands and aliases (`Ctrl+H`) |
 | `cso` | Pick a cheatsheet markdown file and open it in `bat` |
+| `rgf [pattern]` | Live ripgrep through fzf; `Enter` opens the match in `$EDITOR` at that line |
+| `z DIR` | Jump to a frequently used directory (zoxide) |
+| `zi` | Pick a frequently used directory with fzf (zoxide) |
 
 ## fzf
 

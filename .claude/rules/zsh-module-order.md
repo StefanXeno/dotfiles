@@ -13,9 +13,12 @@ paths:
 3. Modular config loop (`zsh/.zsh/*.zsh`)
 4. `bashcompinit`
 5. `~/.zshrc.local` (private/machine-specific)
-6. `mise activate` → `direnv hook` → `fzf --zsh` (TTY-guarded) → `starship init`
+6. `mise activate` → `direnv hook` → `kxd init` (if installed) → `fzf --zsh` (TTY-guarded) → `zoxide init` → `starship init`
 
 Tool activations **must** stay after `.zshrc.local` and all PATH changes so mise shims win.
+
+`kxd init` must stay after `mise activate` (binary on PATH). Ctrl+K is an fzf widget
+(not `kxd file switch` / promptui — that breaks under zle and skips Dracula theming).
 
 ## OMZ plugins
 
