@@ -1,0 +1,4 @@
+# lazygit — render diffs through delta (installed by mise, see mise/.config/mise/config.toml)
+git:
+  diffRenderers:
+    - command: delta --dark --paging=never

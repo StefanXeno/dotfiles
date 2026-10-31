@@ -21,3 +21,6 @@ Thumbs.db
 *~
 .idea/
 .vscode/
+
+# ---- Private opencode memory (local only, never commit) ----
+opencode/.config/opencode/memory/

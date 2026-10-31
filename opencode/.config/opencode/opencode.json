@@ -1,0 +1,57 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "ollama/gemma4:12b",
+  "small_model": "ollama/gemma4:12b",
+  "provider": {
+    "ollama": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (Windows)",
+      "options": {
+        "baseURL": "http://{env:OLLAMA_WIN_HOST}:11434/v1"
+      },
+      "models": {
+        "qwen3.8:latest": {
+          "name": "Qwen 3.8 27B",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "gemma4:12b": {
+          "name": "Gemma 4 12B",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "gpt-oss:20b": {
+          "name": "GPT-OSS 20B",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
+        },
+        "qwen3-vl:8b": {
+          "name": "Qwen3-VL 8B",
+          "limit": {
+            "context": 262144,
+            "output": 16384
+          }
+        },
+        "deepseek-r1:8b": {
+          "name": "DeepSeek-R1 8B",
+          "limit": {
+            "context": 131072,
+            "output": 16384
+          }
+        }
+      }
+    }
+  },
+  "compaction": {
+    "auto": true
+  },
+  "instructions": [
+    "{env:HOME}/.config/opencode/memory/*.md"
+  ]
+}

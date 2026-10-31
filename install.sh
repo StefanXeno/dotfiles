@@ -22,7 +22,9 @@ declare -A OMZ_CUSTOM_PLUGINS=(
 
 # Pin plugin versions for reproducible installs (empty = latest)
 declare -A OMZ_CUSTOM_PLUGIN_REFS=(
+    # renovate: datasource=github-tags depName=zsh-users/zsh-autosuggestions
     ["zsh-autosuggestions"]="v0.7.1"
+    # renovate: datasource=github-tags depName=zsh-users/zsh-syntax-highlighting
     ["zsh-syntax-highlighting"]="0.8.0"
 )
 
@@ -40,35 +42,43 @@ declare -A TPM_PLUGINS=(
 
 # Pin TPM plugin versions (empty = latest)
 declare -A TPM_PLUGIN_REFS=(
+    # renovate: datasource=github-tags depName=tmux-plugins/tpm
     ["tpm"]="v3.1.0"
+    # renovate: datasource=github-tags depName=tmux-plugins/tmux-sensible
     ["tmux-sensible"]="v3.0.0"
+    # renovate: datasource=github-tags depName=tmux-plugins/tmux-yank
     ["tmux-yank"]="v2.3.0"
+    # renovate: datasource=github-tags depName=rickstaa/tmux-notify
     ["tmux-notify"]="v1.6.0"
+    # renovate: datasource=github-tags depName=dracula/tmux
     ["tmux"]="v3.3.1"
 )
 
 # Stow packages to install (= top-level directories in this repo)
-STOW_PACKAGES=(git zsh tmux starship mise)
+STOW_PACKAGES=(git zsh tmux starship mise nvim opencode lazygit)
 
 MISE_CORE_TOOLS=(
-    fzf       # Used in .zshrc for Ctrl+R / Ctrl+T / Alt+C key bindings
-    direnv    # Used in .zshrc: eval "$(direnv hook zsh)"
-    usage     # Required by mise for shell completions
+    fzf    # Used in .zshrc for Ctrl+R / Ctrl+T / Alt+C key bindings
+    direnv # Used in .zshrc: eval "$(direnv hook zsh)"
+    usage  # Required by mise for shell completions
 )
 
 # ---------- Helpers ----------
 
-log()     { echo -e "\033[0;32m[✓]\033[0m $*"; }
-warn()    { echo -e "\033[0;33m[!]\033[0m $*"; }
-err()     { echo -e "\033[0;31m[✗]\033[0m $*" >&2; exit 1; }
-info()    { echo -e "\033[0;34m[→]\033[0m $*"; }
+log() { echo -e "\033[0;32m[✓]\033[0m $*"; }
+warn() { echo -e "\033[0;33m[!]\033[0m $*"; }
+err() {
+    echo -e "\033[0;31m[✗]\033[0m $*" >&2
+    exit 1
+}
+info() { echo -e "\033[0;34m[→]\033[0m $*"; }
 section() { echo -e "\n\033[1;35m══ $* ══\033[0m"; }
 
-is_wsl()          { grep -qi microsoft /proc/version 2>/dev/null; }
+is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
 # Detect if running inside a Docker container.
 # Docker always creates this file in the root filesystem.
 is_docker() { [[ -f /.dockerenv ]]; }
-command_exists()  { command -v "$1" &>/dev/null; }
+command_exists() { command -v "$1" &>/dev/null; }
 
 # Backup a file/dir if it exists and is not already a symlink.
 # Preserves paths relative to $HOME so e.g. ~/.config/mise/config.toml does not
@@ -118,14 +128,14 @@ install_apt_packages() {
         stow
         zsh
         tmux
-        fd-find       # 'fd' file finder (available as 'fdfind' on Ubuntu)
-        bat           # Better 'cat' (available as 'batcat' on Ubuntu)
-        tree          # Directory tree viewer (used in fzf preview)
-        xclip         # Clipboard tool (for non-WSL systems)
-        python3-venv  # Required by mise pipx backends (azure-cli, pipx tool)
-        python3-pygments  # Syntax highlighting for the OMZ colorize plugin
-        source-highlight  # Syntax highlighting for 'less' (LESSOPEN)
-        sl            # Important. Very important.
+        fd-find          # 'fd' file finder (available as 'fdfind' on Ubuntu)
+        bat              # Better 'cat' (available as 'batcat' on Ubuntu)
+        tree             # Directory tree viewer (used in fzf preview)
+        xclip            # Clipboard tool (for non-WSL systems)
+        python3-venv     # Required by mise pipx backends (azure-cli, pipx tool)
+        python3-pygments # Syntax highlighting for the OMZ colorize plugin
+        source-highlight # Syntax highlighting for 'less' (LESSOPEN)
+        sl               # Important. Very important.
         unzip
         build-essential
     )
@@ -330,8 +340,8 @@ install_wsl_notify() {
     fi
 
     case "$(uname -m)" in
-        x86_64)  arch="amd64" ;;
-        i686|i386) arch="386" ;;
+        x86_64) arch="amd64" ;;
+        i686 | i386) arch="386" ;;
         *)
             warn "No wsl-notify-send build for $(uname -m) — install manually if needed."
             return
@@ -380,14 +390,42 @@ install_windows_terminal() {
     fi
 }
 
+# ---------- 6d. Git hooks ----------
+
+# pre-commit + pre-push hooks (gitleaks, shellcheck, shfmt) — see .pre-commit-config.yaml.
+# Needs the mise tools, so it runs after install_mise.
+install_git_hooks() {
+    if is_docker || [[ ! -d "$DOTFILES_DIR/.git" ]]; then
+        return
+    fi
+
+    section "Git Hooks"
+
+    if ! command_exists pre-commit; then
+        warn "pre-commit not found — run 'mise install' and then 'make hooks'."
+        return
+    fi
+
+    (cd "$DOTFILES_DIR" && pre-commit install) || warn "Could not install git hooks — run 'make hooks' manually."
+}
+
 # ---------- 7. Stow Dotfiles ----------
 
 stow_dotfiles() {
     section "Stow Dotfiles"
 
     mkdir -p "$HOME/bin"
+
+    # Private opencode memory: gitignored, so it does not exist on a fresh clone.
+    local memory_file="$DOTFILES_DIR/opencode/.config/opencode/memory/memory.md"
+    if [[ ! -f "$memory_file" ]]; then
+        mkdir -p "${memory_file%/*}"
+        printf '# Memory\n\n' >"$memory_file"
+        log "Created empty opencode memory (local only, gitignored)."
+    fi
+
     local bin_script
-    for bin_script in notify-send ollama-menu ollama-ai wt-settings; do
+    for bin_script in notify-send ollama-menu ollama-ai wt-settings claude-usage; do
         if [[ -f "$DOTFILES_DIR/zsh/bin/$bin_script" ]]; then
             chmod +x "$DOTFILES_DIR/zsh/bin/$bin_script"
         fi
@@ -422,7 +460,7 @@ create_local_templates() {
     # .zshrc.local — private shell config
     if [[ ! -f "$HOME/.zshrc.local" ]]; then
         info "Creating ~/.zshrc.local template..."
-        cat > "$HOME/.zshrc.local" << 'EOF'
+        cat >"$HOME/.zshrc.local" <<'EOF'
 # ~/.zshrc.local
 # Machine-specific and private shell config.
 # This file is NOT tracked in git.
@@ -441,7 +479,7 @@ create_local_templates() {
 # export HTTPS_PROXY=""
 # export NO_PROXY="localhost,127.0.0.1"
 EOF
-        cat >> "$HOME/.zshrc.local" << EOF
+        cat >>"$HOME/.zshrc.local" <<EOF
 
 # --- Dotfiles path (for cs / Ctrl+H cheatsheet search) ---
 export DOTFILES_DIR="$DOTFILES_DIR"
@@ -450,7 +488,7 @@ EOF
     else
         if ! grep -qE '^export DOTFILES_DIR=' "$HOME/.zshrc.local" 2>/dev/null; then
             info "Adding DOTFILES_DIR to ~/.zshrc.local..."
-            cat >> "$HOME/.zshrc.local" << EOF
+            cat >>"$HOME/.zshrc.local" <<EOF
 
 # --- Dotfiles path (for cs / Ctrl+H cheatsheet search) ---
 export DOTFILES_DIR="$DOTFILES_DIR"
@@ -464,7 +502,7 @@ EOF
     # .gitconfig.local — private git config
     if [[ ! -f "$HOME/.gitconfig.local" ]]; then
         info "Creating ~/.gitconfig.local template..."
-        cat > "$HOME/.gitconfig.local" << 'EOF'
+        cat >"$HOME/.gitconfig.local" <<'EOF'
 # ~/.gitconfig.local
 # Machine-specific git config.
 # This file is NOT tracked in git.
@@ -536,11 +574,11 @@ main() {
     echo "╔══════════════════════════════════════╗"
     echo "║      Dotfiles Install Script         ║"
     if is_docker; then
-    echo "║      Environment: Docker             ║"
+        echo "║      Environment: Docker             ║"
     elif is_wsl; then
-    echo "║      Environment: WSL2               ║"
+        echo "║      Environment: WSL2               ║"
     else
-    echo "║      Environment: Native Linux       ║"
+        echo "║      Environment: Native Linux       ║"
     fi
     echo "╚══════════════════════════════════════╝"
     echo ""
@@ -560,6 +598,7 @@ main() {
     install_tpm
     install_wsl_notify
     install_windows_terminal
+    install_git_hooks
 
     create_local_templates
     set_default_shell

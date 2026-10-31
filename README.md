@@ -29,6 +29,7 @@ dotfiles/
 │   │   ├── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
 │   │   ├── ollama-menu               # Ollama model toggle menu (Ctrl+,)
 │   │   ├── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
+│   │   ├── claude-usage              # Claude 5h rate-limit usage for the starship prompt
 │   │   └── wt-settings               # Sync Windows Terminal settings.json (push/pull)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
@@ -41,6 +42,17 @@ dotfiles/
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
 │   └── .tmux.conf
+├── nvim/
+│   └── .config/nvim/           # init.lua + lazy-lock.json (lazy.nvim, Dracula, treesitter)
+├── opencode/
+│   └── .config/opencode/       # opencode.json, AGENTS.md, system_prompt.md
+│       └── memory/             # Private opencode memory — gitignored, created by install.sh
+├── lazygit/
+│   └── .config/lazygit/        # config.yml (delta as diff pager)
+├── .pre-commit-config.yaml     # gitleaks + shellcheck + shfmt hooks (make hooks / make lint)
+├── .editorconfig               # Indentation + shfmt options
+├── Makefile                    # help, hooks, lint, fmt, secrets, stow, test
+├── renovate.json               # Version bump PRs for mise pins, Actions, install.sh refs
 ├── docs/
 │   ├── cheatsheets/            # Commands & aliases only (used by cs / Ctrl+H)
 │   │   ├── tmux.md
@@ -225,6 +237,8 @@ stow --no-folding -t "$HOME" zsh   # example
 
 Infrastructure and daily-driver tools are **pinned** in `mise/.config/mise/config.toml`.
 Misc tools (`jqp`, `dotenvx`, `qdns`, `s3cmd`, `pipx`) stay on `latest`.
+[Renovate](https://docs.renovatebot.com/) (`renovate.json`) opens PRs for mise pins, GitHub Actions
+and the `# renovate:`-marked refs in `install.sh` — it needs the Renovate GitHub App on the repo.
 
 ```bash
 # See available versions for a tool
@@ -267,3 +281,15 @@ bash ~/dotfiles/install.sh
 # Or update to latest inside tmux (does not change install.sh pins)
 # prefix + U
 ```
+
+### Repo checks and git hooks
+
+```bash
+make hooks     # install the pre-commit (staged) and pre-push (unpushed commits) gitleaks hooks
+make lint      # shellcheck + shfmt + gitleaks on every file
+make fmt       # format shell scripts (options come from .editorconfig)
+make secrets   # gitleaks over the full history and the working tree
+```
+
+`install.sh` runs `pre-commit install` automatically. The hooks use the tools pinned in
+`mise/.config/mise/config.toml`, so run them from a shell where mise is activated.
