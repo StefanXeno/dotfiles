@@ -18,6 +18,7 @@
 | `gl` | `git pull` | Pull the current branch from its remote |
 | `jqq` | `$HOME/tools/jqq/jqq.rb` | Query JSON with the local jqq tool |
 | `bfg` | `java -jar $HOME/tools/bfg/bfg-1.14.0.jar` | Remove large files or secrets from Git history with BFG |
+| `ls` | `eza -l --git` (like `ll`) | Plain `ls` looks like `ll`; `-a -A -d -F -r -R -1` work, `-l` and `-h` are implied/ignored, other options (`-t`, `-S`, `--sort`, ...) use the real `ls` |
 | `ll` | `eza -l --git` | Long listing with git status per file (falls back to `ls -lh`) |
 | `la` | `eza -la --git` | Long listing including hidden files |
 | `lt` | `eza --tree --level=2` | Directory tree, 2 levels deep (`LT_LEVEL=3 lt` for more) |

@@ -50,6 +50,43 @@ alias sl="sl -alFe"
 unalias ll la 2>/dev/null
 ll() { if command -v eza &>/dev/null; then eza -l --git --group-directories-first --icons=auto "$@"; else command ls -lh "$@"; fi; }
 la() { if command -v eza &>/dev/null; then eza -la --git --group-directories-first --icons=auto "$@"; else command ls -lAh "$@"; fi; }
+# `ls` looks like `ll` (long eza listing). Options eza reads differently (-t, -S, -X, --sort, ...)
+# go to the real ls, so habits never end in an eza error; -l is implied and -h would add a header row.
+# Scripts and functions that parse the output of ls must call `command ls`.
+unalias ls 2>/dev/null
+ls() {
+    local arg opts args=()
+    if ! command -v eza &>/dev/null; then
+        command ls --color=tty "$@"
+        return
+    fi
+    for arg in "$@"; do
+        case "$arg" in
+            --color | --color=*) args+=("$arg") ;;
+            --*)
+                command ls --color=tty "$@"
+                return
+                ;;
+            -?*)
+                opts="${arg#-}"
+                opts="${opts//[hl]/}"
+                if [[ ! "$opts" =~ ^[aAdFrR1]*$ ]]; then
+                    command ls --color=tty "$@"
+                    return
+                fi
+                [[ -n "$opts" ]] && args+=("-$opts")
+                ;;
+            *) args+=("$arg") ;;
+        esac
+    done
+    # Without a path eza reads file names from stdin whenever stdin is not a terminal (pipes, scripts).
+    local has_path=false
+    for arg in "${args[@]}"; do
+        [[ "$arg" != -* ]] && has_path=true
+    done
+    $has_path || args+=(.)
+    ll "${args[@]}"
+}
 lt() { if command -v eza &>/dev/null; then eza --tree --level="${LT_LEVEL:-2}" --icons=auto "$@"; else tree -L "${LT_LEVEL:-2}" "$@"; fi; }
 alias lg="lazygit"
 

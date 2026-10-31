@@ -146,7 +146,7 @@ cso() {
     fi
 
     if ! command -v fzf &>/dev/null; then
-        ls "$dir"/*.md 2>/dev/null
+        command ls "$dir"/*.md 2>/dev/null
         return
     fi
 
