@@ -14,8 +14,11 @@ services:
     container_name: dotfiles-test
     hostname: dotfiles-test-ubuntu
 
+    # Read-only source: run.sh copies it to ~/dotfiles as the container user. A direct bind mount
+    # would be owned by root in rootless Docker (host uid -> container root), which breaks
+    # chmod, lazy.nvim's lockfile and git ("dubious ownership").
     volumes:
-      - ..:/home/stefan/dotfiles
+      - ..:/mnt/dotfiles-src:ro
 
     stdin_open: true
     tty: true

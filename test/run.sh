@@ -130,6 +130,25 @@ build_and_start() {
     log "Container is up."
 }
 
+# Copy the working tree (committed or not) from the read-only mount to ~/dotfiles as the container
+# user, so it owns its checkout. Also what 'shell'/'bash' do first, to pick up edits from the host.
+# The private opencode memory (gitignored) is never copied.
+sync_repo() {
+    info "Syncing the repo into the container..."
+    if ! _docker_exec "$(
+        cat <<'SYNC'
+set -euo pipefail
+umask 022
+mkdir -p "$HOME/dotfiles"
+# -rlpt: no owner/group (the container user cannot chown); --delete keeps it a mirror
+rsync -rlpt --delete --exclude=/opencode/.config/opencode/memory/ /mnt/dotfiles-src/ "$HOME/dotfiles/"
+SYNC
+    )"; then
+        err "Could not sync the repo into the container."
+        return 1
+    fi
+}
+
 # Start the container WITHOUT rebuilding (used by 'shell' and 'bash').
 # Preserves all state from the previous install run.
 start_without_rebuild() {
@@ -165,6 +184,7 @@ install)
     #   3. Run install.sh inside it
     #   4. On failure: auto-drop into bash for debugging
     build_and_start || exit 1
+    sync_repo || exit 1
 
     section "Running install.sh"
 
@@ -206,6 +226,7 @@ shell)
     # Drop into zsh — uses the EXISTING container, never rebuilds.
     # The container must have been installed first via './test/run.sh install'.
     start_without_rebuild || exit 1
+    sync_repo || exit 1
 
     info "Dropping into zsh..."
     if ! docker compose -f "$COMPOSE_FILE" exec dotfiles-test zsh; then
@@ -219,9 +240,16 @@ bash)
     # Drop into bash — uses the EXISTING container, never rebuilds.
     # Works both before and after install (bash is always available).
     start_without_rebuild || exit 1
+    sync_repo || exit 1
 
     info "Dropping into bash..."
     docker compose -f "$COMPOSE_FILE" exec dotfiles-test bash
+    ;;
+
+sync)
+    # Copy the current working tree into the running container (no install, no rebuild).
+    start_without_rebuild || exit 1
+    sync_repo || exit 1
     ;;
 
 logs)
@@ -260,9 +288,10 @@ help | *)
     echo "Usage: ./test/run.sh <command>"
     echo ""
     echo "Commands:"
-    echo "  install   Build image + run install.sh (always full rebuild)"
-    echo "  shell     Exec into running container as zsh  (no rebuild!)"
-    echo "  bash      Exec into running container as bash (no rebuild!)"
+    echo "  install   Build image, copy the repo in, run install.sh (always full rebuild)"
+    echo "  shell     Copy the repo in again, exec into the container as zsh  (no rebuild!)"
+    echo "  bash      Copy the repo in again, exec into the container as bash (no rebuild!)"
+    echo "  sync      Only copy the current working tree into the running container"
     echo "  logs      Show last 50 lines of container output"
     echo "  rebuild   Force rebuild with --no-cache (when Dockerfile changed)"
     echo "  reset     Destroy container + image for a clean slate"

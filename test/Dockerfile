@@ -21,6 +21,8 @@ RUN apt-get update && apt-get install -y \
     git  \
     sudo \
     ca-certificates \
+    iproute2 \
+    rsync \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG USERNAME=stefan
@@ -45,6 +47,11 @@ RUN \
         ${USERNAME} \
     && echo "${USERNAME} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/${USERNAME} \
     && chmod 0440 /etc/sudoers.d/${USERNAME}
+
+# Rootless Docker starts `docker exec` with umask 0000 - keep zsh sessions at the usual 022.
+# ~/.zshenv is not part of any stow package, and /etc/zsh/zshenv would clash with the zsh package.
+RUN echo 'umask 022' > /home/${USERNAME}/.zshenv \
+    && chown ${USERNAME}:${USERNAME} /home/${USERNAME}/.zshenv
 
 USER ${USERNAME}
 WORKDIR /home/${USERNAME}
