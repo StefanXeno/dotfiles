@@ -52,6 +52,7 @@
     "auto": true
   },
   "instructions": [
+    "{env:HOME}/.config/opencode/global-rules.md",
     "{env:HOME}/.config/opencode/memory/*.md"
   ]
 }

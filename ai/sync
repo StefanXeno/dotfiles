@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Keep the rules of all AI coding tools in sync from one source.
+#
+#   ai/sync            regenerate every derived file
+#   ai/sync --check    exit 1 if a derived file is missing, out of date or orphaned
+#                      (used by the pre-commit hook and CI)
+#
+# Sources - edit these:
+#   ai/rules/*.md         project rules; frontmatter: `description`, optional `paths` (globs)
+#   ai/global/AGENTS.md   personal rules for every project (stowed into the home directory)
+#
+# Derived - never edit (each carries a "Generated from" marker):
+#   .claude/rules/*.md                          Claude Code (same file, path-scoped via `paths`)
+#   .cursor/rules/*.mdc                         Cursor (`globs` + `alwaysApply`)
+#   claude/.claude/CLAUDE.md                    -> ~/.claude/CLAUDE.md
+#   opencode/.config/opencode/global-rules.md   -> ~/.config/opencode/global-rules.md
+#
+# Not generated: the root AGENTS.md (read by opencode, Cursor and Claude Code), CLAUDE.md
+# (imports it) and opencode.json (loads ai/rules/*.md; opencode has no path scoping).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+CHECK=false
+[[ "${1:-}" == --check ]] && CHECK=true
+
+OUT="$(mktemp -d)"
+trap 'rm -rf "$OUT"' EXIT
+
+marker() { printf '<!-- Generated from %s by ai/sync - edit the source, not this file. -->\n' "$1"; }
+
+# Source -> Cursor rule: `paths:` list becomes a comma separated `globs:`, rules without
+# paths apply always.
+cursor_rule() {
+    local src="$1"
+    awk '
+        /^---$/ { fm++; next }
+        fm == 1 && /^description:/ { sub(/^description:[ ]*/, ""); desc = $0; next }
+        fm == 1 && /^paths:/ { inpaths = 1; next }
+        fm == 1 && inpaths && /^[ ]*-[ ]/ {
+            g = $0
+            sub(/^[ ]*-[ ]*/, "", g)
+            gsub(/^"|"$/, "", g)
+            globs = globs (globs == "" ? "" : ",") g
+            next
+        }
+        fm == 1 { inpaths = 0 }
+        fm >= 2 { body = body $0 "\n" }
+        END {
+            print "---"
+            print "description: " desc
+            if (globs != "") print "globs: " globs
+            print "alwaysApply: " (globs == "" ? "true" : "false")
+            print "---"
+            printf "%s", body
+        }
+    ' "$src"
+}
+
+# Insert the generated-marker line right after the frontmatter of a rule (stdin -> stdout).
+with_marker() {
+    local m="$1"
+    awk -v m="$m" '
+        { print }
+        /^---$/ { fm++; if (fm == 2) print m }
+    '
+}
+
+# Source -> plain copy with a marker as first line (global files have no frontmatter).
+with_leading_marker() {
+    marker "$1"
+    cat "$2"
+}
+
+build() {
+    local src name rel
+    for src in ai/rules/*.md; do
+        name="$(basename "$src" .md)"
+        rel="ai/rules/$name.md"
+        mkdir -p "$OUT/.claude/rules" "$OUT/.cursor/rules"
+        with_marker "$(marker "$rel")" <"$src" >"$OUT/.claude/rules/$name.md"
+        cursor_rule "$src" | with_marker "$(marker "$rel")" >"$OUT/.cursor/rules/$name.mdc"
+    done
+    mkdir -p "$OUT/claude/.claude" "$OUT/opencode/.config/opencode"
+    with_leading_marker ai/global/AGENTS.md ai/global/AGENTS.md >"$OUT/claude/.claude/CLAUDE.md"
+    with_leading_marker ai/global/AGENTS.md ai/global/AGENTS.md >"$OUT/opencode/.config/opencode/global-rules.md"
+}
+
+# Generated files in the repo that no source produces any more (only files carrying the marker,
+# so a hand-written rule in .claude/rules or .cursor/rules is never touched).
+orphans() {
+    local f
+    for f in .claude/rules/*.md .cursor/rules/*.mdc; do
+        [[ -f "$f" ]] || continue
+        grep -q 'Generated from ai/rules/' "$f" || continue
+        [[ -f "$OUT/$f" ]] || printf '%s\n' "$f"
+    done
+}
+
+build
+
+status=0
+while IFS= read -r f; do
+    f="${f#"$OUT"/}"
+    if $CHECK; then
+        if [[ ! -f "$f" ]]; then
+            echo "missing:      $f"
+            status=1
+        elif ! cmp -s "$OUT/$f" "$f"; then
+            echo "out of date:  $f"
+            status=1
+        fi
+    else
+        mkdir -p "$(dirname "$f")"
+        cmp -s "$OUT/$f" "$f" 2>/dev/null || {
+            install -m 644 "$OUT/$f" "$f"
+            echo "updated:      $f"
+        }
+    fi
+done < <(find "$OUT" -type f | sort)
+
+while IFS= read -r f; do
+    if $CHECK; then
+        echo "orphaned:     $f (no source in ai/rules/)"
+        status=1
+    else
+        rm -f -- "$f"
+        echo "removed:      $f"
+    fi
+done < <(orphans)
+
+if $CHECK && ((status != 0)); then
+    echo "Run ai/sync (make rules) and commit the result." >&2
+fi
+exit "$status"

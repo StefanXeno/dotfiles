@@ -5,13 +5,15 @@ paths:
   - "test/**/*.sh"
   - "zsh/**/*"
 ---
+<!-- Generated from ai/rules/shell-standards.md by ai/sync - edit the source, not this file. -->
 
 # Shell Standards
 
 ## Bash scripts (`*.sh`, `install.sh`, `test/`)
 
 - Use `set -euo pipefail` (or `set -uo pipefail` where `-e` would break control flow).
-- Must pass `shellcheck -x`.
+- Must pass `shellcheck -x` and `shfmt` (options come from `.editorconfig`; `make fmt` formats, `make lint` checks).
+- A new `zsh/bin/<name>` script is registered in: the `chmod` loop of `install.sh`, `.github/workflows/shellcheck.yml` (paths and run line), `.pre-commit-config.yaml` (both `files:` regexes) and `SHELL_FILES` in the `Makefile`.
 
 ## Zsh modules (`zsh/.zsh/*.zsh`)
 

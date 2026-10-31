@@ -3,6 +3,7 @@ description: Zsh module load order, OMZ plugins, and tool activation sequence
 paths:
   - "zsh/**/*"
 ---
+<!-- Generated from ai/rules/zsh-module-order.md by ai/sync - edit the source, not this file. -->
 
 # Zsh Module Order
 
@@ -46,3 +47,5 @@ for _zsh_module in options fzf aliases tmux completions k9s-functions ollama che
 |---|---|---|
 | Helpers, aliases, functions | `zsh/.zsh/<name>.zsh` | bash-compatible unless zsh-only |
 | Scripts on PATH | `zsh/bin/<name>` | bash, `chmod +x` in `stow_dotfiles` |
+
+Tools from mise (rg, eza, kubectl, ...) are on PATH only after `mise activate`, which runs after the modules load. Do not guard a definition with `command -v tool` at load time; define a function that checks when it is called (`ll`, `k`).

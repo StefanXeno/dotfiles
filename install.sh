@@ -58,7 +58,7 @@ declare -A TPM_PLUGIN_REFS=(
 )
 
 # Stow packages to install (= top-level directories in this repo)
-STOW_PACKAGES=(git zsh tmux starship mise nvim opencode lazygit)
+STOW_PACKAGES=(git zsh tmux starship mise nvim opencode lazygit claude)
 
 MISE_CORE_TOOLS=(
     fzf    # Used in .zshrc for Ctrl+R / Ctrl+T / Alt+C key bindings

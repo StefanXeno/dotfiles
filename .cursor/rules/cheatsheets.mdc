@@ -3,6 +3,7 @@ description: Cheatsheet markdown format, parser contract, and cs/Ctrl+H integrat
 globs: docs/cheatsheets/**,zsh/.zsh/cheatsheets.zsh,zsh/bin/cs-parse-cheatsheets.awk
 alwaysApply: false
 ---
+<!-- Generated from ai/rules/cheatsheets.md by ai/sync - edit the source, not this file. -->
 
 # Cheatsheets System
 

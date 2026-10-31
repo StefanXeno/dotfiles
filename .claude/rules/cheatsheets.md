@@ -5,6 +5,7 @@ paths:
   - "zsh/.zsh/cheatsheets.zsh"
   - "zsh/bin/cs-parse-cheatsheets.awk"
 ---
+<!-- Generated from ai/rules/cheatsheets.md by ai/sync - edit the source, not this file. -->
 
 # Cheatsheets System
 

@@ -27,6 +27,6 @@ trim_trailing_whitespace = false
 indent_style = tab
 
 # shfmt options (binary_next_line / switch_case_indent match the existing scripts).
-[{*.sh,zsh/bin/*}]
+[{*.sh,zsh/bin/*,ai/sync}]
 binary_next_line = true
 switch_case_indent = true

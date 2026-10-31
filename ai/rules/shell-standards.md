@@ -1,0 +1,50 @@
+---
+description: Shell scripting, shellcheck, and Ubuntu portability for sh/zsh files
+paths:
+  - "install.sh"
+  - "test/**/*.sh"
+  - "zsh/**/*"
+---
+
+# Shell Standards
+
+## Bash scripts (`*.sh`, `install.sh`, `test/`)
+
+- Use `set -euo pipefail` (or `set -uo pipefail` where `-e` would break control flow).
+- Must pass `shellcheck -x` and `shfmt` (options come from `.editorconfig`; `make fmt` formats, `make lint` checks).
+- A new `zsh/bin/<name>` script is registered in: the `chmod` loop of `install.sh`, `.github/workflows/shellcheck.yml` (paths and run line), `.pre-commit-config.yaml` (both `files:` regexes) and `SHELL_FILES` in the `Makefile`.
+
+## Zsh modules (`zsh/.zsh/*.zsh`)
+
+- Add `# shellcheck shell=bash` and keep syntax **bash-compatible** where possible.
+- **Exceptions** (zsh-only, skip shellcheck): `options.zsh`, `completions.zsh`.
+- zsh-only constructs (`print -z`, `zle`, `compdef`): isolate at file bottom; use `# shellcheck disable=…` with a one-line reason.
+
+## Ubuntu portability
+
+Aliases do not work in subshells (fzf previews, `docker exec` scripts). Use `command -v`:
+
+```bash
+# ✅ GOOD — works in fzf preview strings and subshells
+command -v bat >/dev/null && bat … || command -v batcat >/dev/null && batcat … || cat
+
+# ❌ BAD — alias only; fails in Ctrl+T preview on stock Ubuntu
+bat --color=always {}
+```
+
+Same pattern for `fd` / `fdfind`.
+
+## Interactive bindings
+
+Only register zle/fzf key bindings when a real TTY exists:
+
+```zsh
+if [[ -o interactive && -t 0 ]] && command -v fzf &>/dev/null; then
+    eval "$(fzf --zsh)"
+fi
+```
+
+## Style
+
+- Comments in English; explain *why* for non-obvious logic.
+- Minimal diffs; match existing naming and structure in surrounding files.

@@ -1,0 +1,33 @@
+---
+description: Stow package layout, secrets policy, and dotfiles repo structure
+---
+
+# Dotfiles Architecture
+
+## Stow packages
+
+- Top-level dirs (`git/`, `zsh/`, `tmux/`, `starship/`, `mise/`, `nvim/`, `opencode/`, `lazygit/`, `claude/`) are **Stow packages** — mirror `~/$path` inside each package.
+- New packages: add dir + entry in `STOW_PACKAGES` in `install.sh`.
+- Always stow with: `stow --no-folding -d "$DOTFILES_DIR" -t "$HOME" <package>` (`--no-folding` is required for shared `~/.config/`).
+
+## Not stowed
+
+These live only in the repo clone (see `.stow-global-ignore`): `docs/`, `test/`, `ai/`, `install.sh`, `README.md`, `.github/`, `windows-terminal/` (synced with `zsh/bin/wt-settings`), and the tooling files in the root (`Makefile`, `.pre-commit-config.yaml`, `.editorconfig`, `renovate.json`, `AGENTS.md`, `CLAUDE.md`, `opencode.json`).
+
+`docs/cheatsheets/` is **not** symlinked — `cs` / `Ctrl+H` need `DOTFILES_DIR` (default `~/dotfiles`, set in `~/.zshrc.local` by `install.sh`).
+
+## Secrets and local overrides
+
+Never commit: `*.local`, `.env`, `.shellsecrets`, anything under `.ssh/`.
+
+| Public (repo) | Private (per machine) |
+|---|---|
+| `git/.gitconfig` | `~/.gitconfig.local` |
+| `zsh/.zshrc` + modules | `~/.zshrc.local` |
+| `opencode/.config/opencode/` (config, rules) | `opencode/.config/opencode/memory/` (gitignored; `install.sh` creates it empty, the Docker test never copies it) |
+
+## After changes
+
+- Config edits via symlinks: `git pull` + `exec zsh` is usually enough.
+- Re-stow only when **new files** or **new packages** are added (`make stow` stows every package in `STOW_PACKAGES`).
+- Re-run `install.sh` only for pinned tooling (OMZ, TPM, mise, APT) — not for normal config edits.

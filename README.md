@@ -20,6 +20,15 @@ I vibe coded my dotfiles. Let's see if this was a good idea... - StefanXeno
 
 ```
 dotfiles/
+├── AGENTS.md                   # Project rules for AI coding tools (opencode, Cursor, Claude Code)
+├── CLAUDE.md                   # Imports AGENTS.md for Claude Code
+├── opencode.json               # Makes opencode load ai/rules/*.md in this repo
+├── ai/
+│   ├── rules/*.md              # Source of the path-scoped project rules (edit these)
+│   ├── global/AGENTS.md        # Source of the personal rules for every project (edit this)
+│   └── sync                    # Generates the per-tool copies; `--check` fails on drift
+├── claude/
+│   └── .claude/CLAUDE.md       # GENERATED -> ~/.claude/CLAUDE.md (personal rules)
 ├── git/
 │   └── .gitconfig              # Public-safe base config (SSH signing, aliases)
 ├── zsh/
@@ -186,6 +195,19 @@ Verify signing works:
 git commit --allow-empty -m "test: verify SSH signing"
 git log --show-signature -1
 ```
+
+## 🤖 AI coding rules
+
+One source feeds Claude Code, Cursor and opencode:
+
+| Edit | Generated (`make rules`) | Used by |
+|---|---|---|
+| `ai/rules/*.md` | `.claude/rules/*.md`, `.cursor/rules/*.mdc` | project rules; opencode loads `ai/rules/*.md` via `opencode.json` |
+| `ai/global/AGENTS.md` | `~/.claude/CLAUDE.md`, `~/.config/opencode/global-rules.md` (Stow) | personal rules in every project |
+| `AGENTS.md` (hand-written) | – | opencode, Cursor and Claude Code (`CLAUDE.md` imports it) |
+
+A pre-commit hook regenerates the copies (the commit fails once if files changed) and CI runs `ai/sync --check`.
+Cursor's personal "User Rules" live in the app: paste `ai/global/AGENTS.md` into Settings → Rules.
 
 ## 🧪 Testing
 

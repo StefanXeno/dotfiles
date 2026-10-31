@@ -27,7 +27,7 @@ repos:
         name: shellcheck (bash scripts)
         entry: shellcheck -x
         language: system
-        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$
+        files: ^(install\.sh|ai/sync|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$
 
       # Same list as .github/workflows/shellcheck.yml — bash-compatible zsh modules only.
       - id: shellcheck-zsh-modules
@@ -36,8 +36,17 @@ repos:
         language: system
         files: ^zsh/\.zsh/(aliases|cheatsheets|fzf|k9s-functions|ollama|tmux)\.zsh$
 
+      # Rules for Claude Code, Cursor and opencode come from ai/. This hook regenerates the copies;
+      # if it changed files the commit fails once - `git add` them and commit again.
+      - id: ai-rules
+        name: ai-rules (sync Claude / Cursor / opencode rules)
+        entry: ai/sync
+        language: system
+        pass_filenames: false
+        files: ^(ai/|\.claude/rules/|\.cursor/rules/|claude/|opencode/\.config/opencode/global-rules\.md)
+
       - id: shfmt
         name: shfmt (options from .editorconfig)
         entry: shfmt -d
         language: system
-        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$
+        files: ^(install\.sh|ai/sync|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings|claude-usage|tmux-ai-status))$
