@@ -26,7 +26,9 @@ dotfiles/
 │   ├── .zshrc                  # Shell orchestrator — sources ~/.zsh/*.zsh modules
 │   ├── bin/
 │   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Ctrl+H
-│   │   └── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
+│   │   ├── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
+│   │   ├── ollama-menu               # Ollama model toggle menu (Ctrl+,)
+│   │   └── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
 │   └── .zsh/
 │       ├── options.zsh         # History, shell options, environment
 │       ├── fzf.zsh             # fzf defaults and key-binding options
@@ -34,6 +36,7 @@ dotfiles/
 │       ├── tmux.zsh            # tmux helpers: ta, tn, tl
 │       ├── cheatsheets.zsh     # cs / cso / Ctrl+H cheatsheet search
 │       ├── completions.zsh     # Lazy-loaded tool completions
+│       ├── ollama.zsh          # Ollama host, opencode wrapper, Ctrl+, / Ctrl+. widgets, AI autosuggest
 │       └── k9s-functions.zsh   # Custom k9s helper functions
 ├── tmux/
 │   └── .tmux.conf
@@ -41,6 +44,7 @@ dotfiles/
 │   ├── cheatsheets/            # Commands & aliases only (used by cs / Ctrl+H)
 │   │   ├── tmux.md
 │   │   ├── zsh-fzf.md
+│   │   ├── ai.md               # Local AI: Ctrl+, / Ctrl+. / Ctrl+O, ollama-menu, opencode
 │   │   └── git.md
 │   ├── tmux.md                 # Full tmux key binding reference
 │   ├── zsh.md                  # Plugins, fzf bindings, shell options

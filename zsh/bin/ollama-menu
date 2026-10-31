@@ -1,0 +1,451 @@
+#!/usr/bin/env bash
+# Toggle Ollama models (running on the Windows host) from WSL via an fzf menu.
+#
+#   ollama-menu              interactive menu (Ctrl+, in zsh)
+#   ollama-menu up           start Ollama on Windows if it is not reachable
+#   ollama-menu load MODEL   load MODEL into (V)RAM, unloading all others
+#   ollama-menu unload [M]   unload MODEL (or all models)
+#   ollama-menu status       list models, ● = loaded
+#   ollama-menu info MODEL   model details (menu preview)
+#   ollama-menu default M    set M as the opencode default model
+set -uo pipefail
+
+# WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
+OLLAMA_WIN_HOST="${OLLAMA_WIN_HOST:-$(ip route show default | awk '{print $3; exit}')}"
+OLLAMA_URL="${OLLAMA_URL:-http://${OLLAMA_WIN_HOST}:11434}"
+# -1 = stay loaded until switched off in this menu (also accepts durations like "30m").
+OLLAMA_MENU_KEEP_ALIVE="${OLLAMA_MENU_KEEP_ALIVE:--1}"
+OPENCODE_CONFIG="${OPENCODE_CONFIG:-$HOME/.config/opencode/opencode.json}"
+SELF="$(realpath "${BASH_SOURCE[0]}")"
+
+die() {
+    echo "ollama-menu: $*" >&2
+    exit 1
+}
+
+for _dep in curl jq; do
+    command -v "$_dep" >/dev/null || die "$_dep not found"
+done
+
+api_up() {
+    curl -s -m 2 "$OLLAMA_URL/api/version" >/dev/null
+}
+
+# All installed models: name<TAB>size in bytes
+installed_models() {
+    curl -s -m 5 "$OLLAMA_URL/api/tags" | jq -r '.models[] | "\(.name)\t\(.size)"' | sort
+}
+
+loaded_models() {
+    curl -s -m 5 "$OLLAMA_URL/api/ps" | jq -r '.models[].name'
+}
+
+win_ps() {
+    powershell.exe -NoProfile -NonInteractive -Command "$1" >/dev/null 2>&1
+}
+
+cmd_up() {
+    api_up && return 0
+    command -v powershell.exe >/dev/null || die "Ollama unreachable at $OLLAMA_URL and no Windows interop"
+    echo "Starting Ollama on Windows ..." >&2
+    # shellcheck disable=SC2016 # $env:LOCALAPPDATA is expanded by PowerShell, not bash
+    win_ps 'Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe"'
+    local _
+    for _ in {1..30}; do
+        api_up && return 0
+        sleep 1
+    done
+    die "Ollama still unreachable at $OLLAMA_URL after 30 s"
+}
+
+cmd_down() {
+    win_ps "Stop-Process -Name 'ollama app','ollama' -ErrorAction SilentlyContinue"
+}
+
+# keep_alive: 0 unloads immediately, -1 keeps the model loaded, "30m" sets a timeout.
+# An empty prompt only loads the model (or just updates keep_alive if already loaded).
+set_keep_alive() {
+    local keep="$2"
+    [[ "$keep" =~ ^-?[0-9]+$ ]] || keep="\"$keep\""
+    curl -s -m 600 "$OLLAMA_URL/api/generate" \
+        -d "$(jq -nc --arg m "$1" --argjson k "$keep" '{model: $m, keep_alive: $k}')" >/dev/null
+}
+
+is_loaded() {
+    loaded_models | grep -qxF "$1"
+}
+
+cmd_unload() {
+    local model
+    if [[ -n "${1:-}" ]]; then
+        set_keep_alive "$1" 0
+        return
+    fi
+    while IFS= read -r model; do
+        [[ -n "$model" ]] && set_keep_alive "$model" 0
+    done < <(loaded_models)
+}
+
+# One active model at a time — local VRAM rarely fits two.
+cmd_load() {
+    local target="${1:?model name required}" keep="${2:-$OLLAMA_MENU_KEEP_ALIVE}" model
+    while IFS= read -r model; do
+        [[ -n "$model" && "$model" != "$target" ]] && set_keep_alive "$model" 0
+    done < <(loaded_models)
+    set_keep_alive "$target" "$keep"
+}
+
+opencode_default() {
+    jq -r '.model // empty' "$OPENCODE_CONFIG" 2>/dev/null
+}
+
+has_tools() {
+    curl -s -m 5 "$OLLAMA_URL/api/tags" \
+        | jq -e --arg n "$1" '.models[] | select(.name == $n) | (.capabilities // []) | index("tools")' >/dev/null
+}
+
+# Set opencode's default model; registers the model in the ollama provider if missing.
+cmd_default() {
+    local name="${1:?model name required}" ctx tmp
+    [[ -f "$OPENCODE_CONFIG" ]] || die "opencode config not found: $OPENCODE_CONFIG"
+    ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
+        | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072')"
+    tmp="$(mktemp "${OPENCODE_CONFIG}.XXXXXX")"
+    jq --arg n "$name" --argjson ctx "${ctx:-131072}" '
+        .model = "ollama/" + $n
+        | .provider.ollama.models[$n] //= {name: $n, limit: {context: $ctx, output: 16384}}
+    ' "$OPENCODE_CONFIG" >"$tmp" && mv "$tmp" "$OPENCODE_CONFIG" || return 1
+    # opencode 2 keeps a background service with a cached config.
+    if command -v opencode >/dev/null; then
+        opencode reload >/dev/null 2>&1 || true
+    fi
+}
+
+# Start opencode with MODEL in the calling shell: the command is written to
+# OLLAMA_MENU_CMD_FILE and run by the zsh widget (or by cmd_menu) after the menu closes.
+# opencode 2 has no per-launch model flag, so MODEL becomes the default first.
+start_opencode() {
+    cmd_default "$1" || return 0
+    printf 'opencode\n' >"$OLLAMA_MENU_CMD_FILE"
+    return 1  # close the menu
+}
+
+# Preview pane: live status + details for a model, short help for action rows.
+cmd_info() {
+    local name="${1:-}" action="${2:-}"
+    if [[ -z "$name" ]]; then
+        case "$action" in
+            unload) printf '⏹ Unload all models\n\nFrees all (V)RAM.\nOllama itself keeps running.\n' ;;
+            down) printf '⏻ Stop Ollama\n\nStops "ollama app.exe" and the server on Windows.\nStart it again from this menu or via "opencode".\n' ;;
+            up) printf '▶ Start Ollama\n\nStarts "ollama app.exe" on Windows.\nReachable at %s\n' "$OLLAMA_URL" ;;
+        esac
+        return
+    fi
+    local tags ps
+    tags="$(curl -s -m 5 "$OLLAMA_URL/api/tags")"
+    ps="$(curl -s -m 5 "$OLLAMA_URL/api/ps")"
+    jq -nr --arg n "$name" --arg def "$(opencode_default)" --argjson tags "$tags" --argjson ps "$ps" '
+        def gb: (. / 1e9 * 10 | round / 10 | tostring) + " GB";
+        ($tags.models[] | select(.name == $n)) as $m
+        | ([$ps.models[] | select(.name == $n)] | first) as $p
+        | ($m.capabilities // []) as $caps
+        | [
+            $n,
+            "────────────────────────────",
+            (if $p then
+                "Status:        ● ON  (" + ($p.size_vram | gb) + " VRAM)",
+                "Stays on:      " + (if ($p.expires_at[0:4] | tonumber) > 2100 then "until switched off"
+                                     else "until " + $p.expires_at[11:16] + " (then unloads automatically)" end)
+             else "Status:        ○ OFF" end),
+            "",
+            "Parameter:     " + ($m.details.parameter_size // "?"),
+            "Quantization:  " + ($m.details.quantization_level // "?"),
+            "Size:          " + ($m.size | gb),
+            "Context:       " + (($m.details.context_length // "?") | tostring) + " Tokens",
+            "Capabilities:  " + ($caps | join(", ")),
+            "",
+            "opencode:      " + (if ($caps | index("tools")) then "✓ usable (tool calling)" else "✗ no tool calling" end),
+            (if $def == "ollama/" + $n then "               ★ default model" else empty end)
+          ] | .[]'
+}
+
+cmd_status() {
+    local loaded name size mark
+    loaded="$(loaded_models)"
+    while IFS=$'\t' read -r name size; do
+        mark="○"
+        grep -qxF "$name" <<<"$loaded" && mark="●"
+        printf '%s %-28s %6s\n' "$mark" "$name" "$(numfmt --to=si --suffix=B "$size")"
+    done < <(installed_models)
+}
+
+# Main menu rows: action<TAB>argument<TAB>label (only the label is shown).
+menu_rows() {
+    local line name def
+    if ! api_up; then
+        printf 'up\t\t▶ Start Ollama (Windows)\n'
+        return
+    fi
+    def="$(opencode_default)"
+    while IFS= read -r line; do
+        name="$(awk '{print $2}' <<<"$line")"
+        [[ "$def" == "ollama/$name" ]] && line="$line ★"
+        printf 'model\t%s\t%s\n' "$name" "$line"
+    done < <(cmd_status)
+    printf 'unload\t\t⏹ Unload all models\n'
+    printf 'down\t\t⏻ Stop Ollama (Windows)\n'
+}
+
+# Model menu rows: id<TAB>action<TAB>label. On/off share the id "power" so the
+# cursor stays on that row when it flips after a reload.
+model_rows() {
+    local name="$1"
+    if is_loaded "$name"; then
+        printf 'power\toff\t⏹ Switch off\n'
+        printf 'restart\trestart\t↻ Restart\n'
+    else
+        printf 'power\ton\t● Switch on\n'
+    fi
+    printf 'keep:-1\tkeep:-1\t∞ Keep on: until switched off\n'
+    printf 'keep:1h\tkeep:1h\t⏱ Keep on: 1 hour\n'
+    printf 'keep:30m\tkeep:30m\t⏱ Keep on: 30 minutes\n'
+    printf 'keep:5m\tkeep:5m\t⏱ Keep on: 5 minutes (Ollama default)\n'
+    if has_tools "$name"; then
+        [[ "$(opencode_default)" == "ollama/$name" ]] || printf 'default\tdefault\t★ Set as opencode default\n'
+        printf 'opencode\topencode\t🚀 Set as default and start opencode\n'
+    fi
+    printf 'back\tback\t← Back\n'
+}
+
+# Run one model action; prints the status message. Returns 1 to close the whole menu.
+run_model_action() {
+    local name="$1" action="$2" start=$SECONDS
+    case "$action" in
+        on) cmd_load "$name" && echo "● $name switched on ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded" ;;
+        off) cmd_unload "$name" && echo "⏹ $name switched off" ;;
+        restart)
+            cmd_unload "$name"
+            cmd_load "$name" && echo "↻ $name restarted ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded"
+            ;;
+        keep:*)
+            if cmd_load "$name" "${action#keep:}"; then
+                [[ "${action#keep:}" == "-1" ]] && echo "∞ $name stays on until switched off" || echo "⏱ $name stays on for ${action#keep:}"
+            else
+                echo "✗ $name could not be loaded"
+            fi
+            ;;
+        default) cmd_default "$name" && echo "★ $name is now the opencode default" ;;
+        opencode)
+            is_loaded "$name" || (cmd_load "$name" >/dev/null 2>&1 &)
+            start_opencode "$name" || return 1
+            ;;
+    esac
+}
+
+# ── fzf callbacks ─────────────────────────────────────────────────────────────
+# Actions run inside the open fzf via reload-sync: fzf keeps the list and preview,
+# blocks input and shows its spinner while a model loads (no blank screen).
+# Shared state lives in $OLLAMA_MENU_STATE: "msg" (status line), "pos" (initial cursor).
+
+header_hints() {
+    case "$1" in
+        main) echo "🦙 Enter: options · Ctrl+O: on/off · Esc: close" ;;
+        model) echo "🦙 Enter: run · Esc: back" ;;
+    esac
+}
+
+set_msg() {
+    printf '%s' "$1" >"$OLLAMA_MENU_STATE/msg"
+}
+
+# transform-header: hints plus the current status line.
+cb_header() {
+    header_hints "$1"
+    [[ -s "$OLLAMA_MENU_STATE/msg" ]] && cat "$OLLAMA_MENU_STATE/msg"
+    return 0
+}
+
+# load event: refresh header and preview; apply a pending initial cursor position once.
+cb_load() {
+    local scope="$1" actions
+    actions="transform-header('$SELF' _header $scope)+refresh-preview"
+    if [[ -s "$OLLAMA_MENU_STATE/pos" ]]; then
+        actions+="+pos($(cat "$OLLAMA_MENU_STATE/pos"))"
+        rm -f "$OLLAMA_MENU_STATE/pos"
+    fi
+    printf '%s' "$actions"
+}
+
+# Show "busy" text, then run the action in reload-sync (fzf spins until it is done).
+busy() {
+    set_msg "⏳ $1"
+    printf "transform-header('%s' _header %s)+clear-query+reload-sync:%s" "$SELF" "$2" "$3"
+}
+
+# Main menu: Enter / Ctrl+O on a row.
+cb_main_key() {
+    local key="$1" action="$2" arg="$3"
+    case "$key:$action" in
+        enter:model) printf 'accept' ;;
+        ctrl-o:model)
+            if is_loaded "$arg"; then
+                busy "Switching off $arg …" main "'$SELF' _do main '$arg' off"
+            else
+                busy "Switching on $arg …" main "'$SELF' _do main '$arg' on"
+            fi
+            ;;
+        enter:unload) busy "Unloading all models …" main "'$SELF' _do main '' unload" ;;
+        enter:up) busy "Starting Ollama on Windows …" main "'$SELF' _do main '' up" ;;
+        enter:down) busy "Stopping Ollama …" main "'$SELF' _do main '' down" ;;
+    esac
+}
+
+# Model menu: Enter on an action row.
+cb_model_key() {
+    local name="$1" action="$2"
+    case "$action" in
+        back | opencode) printf 'accept' ;;
+        on) busy "Switching on $name …" model "'$SELF' _do model '$name' on" ;;
+        off) busy "Switching off $name …" model "'$SELF' _do model '$name' off" ;;
+        restart) busy "Restarting $name …" model "'$SELF' _do model '$name' restart" ;;
+        keep:*) busy "Updating keep-alive for $name …" model "'$SELF' _do model '$name' '$action'" ;;
+        default) busy "Setting opencode default …" model "'$SELF' _do model '$name' default" ;;
+    esac
+}
+
+# Model menu side pane: the main model list (NAME highlighted like fzf's cursor row)
+# above the live status. The action list sits on the right, so the focus appears
+# to move from the model row into its preview.
+cb_model_side() {
+    local name="$1" cols="${FZF_PREVIEW_COLUMNS:-60}" def line row
+    local hl=$'\e[48;2;68;71;90m' pink=$'\e[38;2;255;121;198m' fg=$'\e[38;2;248;248;242m'
+    local dim=$'\e[38;2;98;114;164m' reset=$'\e[0m'
+    def="$(opencode_default)"
+    while IFS= read -r line; do
+        row="$(awk '{print $2}' <<<"$line")"
+        [[ "$def" == "ollama/$row" ]] && line="$line ★"
+        if [[ "$row" == "$name" ]]; then
+            printf '%s%s▶ %s%-*s%s\n' "$hl" "$pink" "$fg" "$((cols - 2))" "$line" "$reset"
+        else
+            printf '%s  %s%s\n' "$dim" "$line" "$reset"
+        fi
+    done < <(cmd_status)
+    echo
+    cmd_info "$name"
+}
+
+# reload-sync target: run the action, store its message, print the fresh rows.
+cb_do() {
+    local scope="$1" name="$2" action="$3" msg=""
+    case "$action" in
+        unload) cmd_unload && msg="⏹ All models unloaded" ;;
+        up) (cmd_up) 2>/dev/null && msg="▶ Ollama is running" || msg="✗ Ollama did not start" ;;
+        down) cmd_down && msg="⏻ Ollama stopped" ;;
+        *) msg="$(run_model_action "$name" "$action" 2>/dev/null)" ;;
+    esac
+    set_msg "$msg"
+    if [[ "$scope" == main ]]; then
+        menu_rows
+    else
+        model_rows "$name"
+    fi
+}
+
+# fzf with the dotfiles look (FZF_DEFAULT_OPTS) plus the shared preview settings.
+# The preview always stays visible (it shows the live model status).
+menu_fzf() {
+    fzf --delimiter=$'\t' \
+        --track \
+        --preview-window 'right:50%' \
+        --bind 'focus:preview-top' \
+        "$@"
+}
+
+# Second level: actions for one model, live status in the preview.
+model_menu() {
+    local name="$1" selected action
+    set_msg ""
+    selected="$(
+        model_rows "$name" | menu_fzf \
+            --with-nth=3 \
+            --id-nth=1 \
+            --prompt="🤖 $name: " \
+            --header="$(header_hints model)" \
+            --bind "load:transform:'$SELF' _load model" \
+            --bind "enter:transform:'$SELF' _model-key '$name' {2}" \
+            --preview-window 'left:50%' \
+            --preview "'$SELF' _model-side '$name'"
+    )" || return 0
+    action="$(cut -f2 <<<"$selected")"
+    [[ "$action" == opencode ]] || return 0
+    run_model_action "$name" opencode >/dev/null || return 1
+}
+
+cmd_menu() {
+    command -v fzf >/dev/null || die "fzf not found"
+    # Called directly (not from the zsh widget): run a picked command ourselves on exit.
+    if [[ -z "${OLLAMA_MENU_CMD_FILE:-}" ]]; then
+        OLLAMA_MENU_CMD_FILE="$(mktemp)"
+        menu_loop
+        local cmd
+        cmd="$(cat "$OLLAMA_MENU_CMD_FILE")"
+        rm -f "$OLLAMA_MENU_CMD_FILE"
+        [[ -n "$cmd" ]] && exec zsh -ic "$cmd"
+        return 0
+    fi
+    menu_loop
+}
+
+menu_loop() {
+    # Not every caller exports FZF_DEFAULT_OPTS — reuse the Dracula fzf look from the dotfiles.
+    if [[ -z "${FZF_DEFAULT_OPTS:-}" && -f "$HOME/.zsh/fzf.zsh" ]]; then
+        # shellcheck source=/dev/null
+        source "$HOME/.zsh/fzf.zsh"
+    fi
+    OLLAMA_MENU_STATE="$(mktemp -d)"
+    export OLLAMA_MENU_STATE OLLAMA_MENU_CMD_FILE
+    # shellcheck disable=SC2064 # expand the path now
+    trap "rm -rf '$OLLAMA_MENU_STATE'" EXIT
+    local selected arg rows pos
+    while true; do
+        set_msg ""
+        rows="$(menu_rows)"
+        # Back from a model menu: start on that model again.
+        if [[ -n "${arg:-}" ]]; then
+            pos="$(grep -nF -- "model"$'\t'"$arg"$'\t' <<<"$rows" | head -1 | cut -d: -f1)"
+            [[ -n "$pos" ]] && printf '%s' "$pos" >"$OLLAMA_MENU_STATE/pos"
+        fi
+        selected="$(
+            menu_fzf <<<"$rows" \
+                --with-nth=3 \
+                --id-nth=1,2 \
+                --prompt='🤖 Models: ' \
+                --header="$(header_hints main)" \
+                --bind "load:transform:'$SELF' _load main" \
+                --bind "enter:transform:'$SELF' _main-key enter {1} {2}" \
+                --bind "ctrl-o:transform:'$SELF' _main-key ctrl-o {1} {2}" \
+                --preview "'$SELF' info {2} {1}"
+        )" || return 0
+        arg="$(cut -f2 <<<"$selected")"
+        model_menu "$arg" || return 0
+    done
+}
+
+case "${1:-menu}" in
+    menu) cmd_menu ;;
+    up) cmd_up ;;
+    down) cmd_down ;;
+    load) cmd_up && cmd_load "${2:-}" ;;
+    unload) cmd_unload "${2:-}" ;;
+    status) api_up || die "Ollama unreachable at $OLLAMA_URL"; cmd_status ;;
+    info) cmd_info "${2:-}" "${3:-}" ;;
+    default) cmd_default "${2:-}" ;;
+    # Internal fzf callbacks (see "fzf callbacks" above).
+    _header) cb_header "${2:-}" ;;
+    _load) cb_load "${2:-}" ;;
+    _main-key) cb_main_key "${2:-}" "${3:-}" "${4:-}" ;;
+    _model-key) cb_model_key "${2:-}" "${3:-}" ;;
+    _do) cb_do "${2:-}" "${3:-}" "${4:-}" ;;
+    _model-side) cb_model_side "${2:-}" ;;
+    *) die "unknown command: $1 (menu|up|down|load|unload|status|info|default)" ;;
+esac

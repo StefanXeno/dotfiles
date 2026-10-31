@@ -37,6 +37,8 @@ Prefix is **Ctrl+a**.
 | Kill pane | `prefix` + `x` | Close the current pane |
 | Zoom pane | `prefix` + `z` | Toggle the current pane to full window size |
 | Scratchpad | `prefix` + backtick | Open a temporary floating shell popup without changing your layout |
+| Ollama menu | `Ctrl+,` | Forwarded to zsh — opens the local Ollama model menu |
+| Explain command | `Ctrl+.` | Forwarded to zsh — explains the current command line with the local AI |
 | Show pane numbers | `prefix` + `q` | Briefly display pane numbers for quick targeting |
 | Sync panes | `prefix` + `s` | Send the same input to every pane in the window (toggle) |
 

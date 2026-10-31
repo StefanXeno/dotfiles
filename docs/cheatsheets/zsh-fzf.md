@@ -33,11 +33,12 @@
 
 | Action | Keys | What it does |
 |---|---|---|
-| Search history | `Ctrl+R` | Fuzzy-search command history with full-command preview |
+| Search history | `Ctrl+R` | Fuzzy-search command history; preview explains the command when a local AI is on |
 | Find files | `Ctrl+T` | Fuzzy-find files (multi-select with `Tab`) |
 | Switch kubeconfig | `Ctrl+K` | fzf picker for kubeconfigs; preview shows contexts/namespaces |
 | Find directory | `Alt+C` | Fuzzy-find directories and `cd` into the selection |
 | Search cheatsheets | `Ctrl+H` | Open the `cs` cheatsheet picker from the shell prompt |
+| Local AI shortcuts | `Ctrl+,` `Ctrl+.` `Ctrl+O` | See the `ai` cheatsheet (`cso`) |
 
 ## k9s
 

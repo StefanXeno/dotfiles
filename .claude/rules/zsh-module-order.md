@@ -31,7 +31,7 @@ plugins=(
 ## Module loop order
 
 ```zsh
-for _zsh_module in options fzf aliases tmux completions k9s-functions cheatsheets; do
+for _zsh_module in options fzf aliases tmux completions k9s-functions ollama cheatsheets; do
 ```
 
 - Add new modules to this loop — do not `source` ad-hoc elsewhere in `.zshrc`.

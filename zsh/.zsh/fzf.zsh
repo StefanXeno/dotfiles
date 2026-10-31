@@ -29,11 +29,12 @@ export FZF_DEFAULT_OPTS="
 --color=border:#6272a4
 "
 
+# Preview: ollama-ai explains the command when a local model is switched on (see ollama.zsh).
 export FZF_CTRL_R_OPTS="
 --prompt='📖 Commands: '
 --header='🔍 History Search'
---preview 'echo {} | fold -sw 120'
---preview-window down:5:wrap
+--preview 'if command -v ollama-ai >/dev/null 2>&1; then ollama-ai explain {2..}; else echo {} | fold -sw 120; fi'
+--preview-window down:55%:wrap
 --bind 'ctrl-/:toggle-preview'
 --bind 'focus:preview-top'
 "

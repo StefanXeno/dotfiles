@@ -16,6 +16,10 @@ With only **two panes**, forwards and backwards look identical (both just swap p
 Use it for one-off commands, notes, or `htop` without touching your pane arrangement.
 Close it by exiting the shell (`exit` or `Ctrl+d`) or pressing the binding again.
 
+### Ollama menu
+
+`Ctrl+,` and `Ctrl+.` (no prefix) are forwarded to zsh: `Ctrl+,` opens `ollama-menu` inline to switch local AI models on/off, `Ctrl+.` explains the current command line — see [zsh docs](zsh.md#local-ai-ollama--opencode).
+
 ### Zoom
 
 `prefix` + `z` toggles the current pane to full window size (press again to restore).

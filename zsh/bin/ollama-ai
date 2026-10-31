@@ -1,0 +1,227 @@
+#!/usr/bin/env bash
+# Shell helpers backed by the Ollama model that is currently switched on (see ollama-menu).
+# Never loads a model: without an active model every command degrades gracefully.
+#
+#   ollama-ai active              print the loaded model (exit 1 if none)
+#   ollama-ai explain CMD         print CMD, then stream an explanation (Ctrl+R preview)
+#   ollama-ai explain -q CMD      explanation only; exit 3 if no model is on (Ctrl+.)
+#   ollama-ai complete BUFFER     print a completion for BUFFER (zsh-autosuggestions);
+#                                 recent commands are read from stdin
+#   ollama-ai bubble [--plain] WIDTH TITLE <text
+#                                 draw text in an 8-bit style speech bubble
+set -uo pipefail
+# No pathname expansion: word-splitting text like "du -sh *" must not glob.
+set -f
+
+# WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
+OLLAMA_WIN_HOST="${OLLAMA_WIN_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
+OLLAMA_URL="${OLLAMA_URL:-http://${OLLAMA_WIN_HOST}:11434}"
+OLLAMA_AI_LANG="${OLLAMA_AI_LANG:-English}"
+CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-explain"
+
+command -v jq >/dev/null || exit 1
+
+# ${#var} must count characters, not bytes, for the bubble padding.
+[[ "$(locale charmap 2>/dev/null)" == UTF-8 ]] || export LC_ALL=C.UTF-8
+
+# Loaded model and the keep_alive that preserves its current lifetime: name<TAB>keep_alive.
+# Every request resets keep_alive, so pass the remaining time back instead of the 5m default.
+active_model() {
+    local ps name expires now
+    ps="$(curl -s -m 0.5 "$OLLAMA_URL/api/ps")" || return 1
+    name="$(jq -r '.models[0].name // empty' <<<"$ps" 2>/dev/null)"
+    [[ -n "$name" ]] || return 1
+    expires="$(jq -r '.models[0].expires_at' <<<"$ps")"
+    if ((${expires:0:4} > 2100)); then
+        printf '%s\t-1\n' "$name"
+    else
+        now="$(date +%s)"
+        expires="$(date -d "$expires" +%s 2>/dev/null || echo "$now")"
+        printf '%s\t%s\n' "$name" "$((expires > now ? expires - now : 1))"
+    fi
+}
+
+# generate MODEL KEEP_ALIVE STREAM SYSTEM PROMPT [OPTIONS_JSON]
+generate() {
+    local opts="${6:-}"
+    jq -nc --arg m "$1" --argjson k "$2" --argjson s "$3" --arg sys "$4" --arg p "$5" \
+        --argjson o "${opts:-"{}"}" \
+        '{model: $m, keep_alive: $k, stream: $s, think: false, system: $sys, prompt: $p, options: $o}' \
+        | curl -sN -m 120 "$OLLAMA_URL/api/generate" -d @-
+}
+
+cmd_active() {
+    local active
+    active="$(active_model)" || return 1
+    cut -f1 <<<"$active"
+}
+
+# ── 8-bit speech bubble ───────────────────────────────────────────────────────
+# Quadrant blocks (▛▀▜ ▌▐ ▙▄▟) give the chunky NES dialog-box look; the tail on top
+# points up at the command. BUBBLE_PLAIN=1 drops colors (zle -M prints them raw).
+bubble_colors() {
+    if [[ "${BUBBLE_PLAIN:-0}" == 1 ]]; then
+        B="" T="" R=""
+    else
+        B=$'\e[38;2;189;147;249m' T=$'\e[1;38;2;80;250;123m' R=$'\e[0m'
+    fi
+}
+
+repeat_char() {
+    local s
+    printf -v s '%*s' "$2" ''
+    printf '%s' "${s// /$1}"
+}
+
+bubble_top() {
+    local width="$1" title=" 🤖 $2 " fill
+    bubble_colors
+    # 🤖 is two columns wide but one character.
+    fill=$((width - 4 - ${#title} - 1))
+    ((fill < 1)) && fill=1
+    printf '%s    ▄\n    █▙%s\n' "$B" "$R"
+    printf '%s▛▀▀%s%s%s%s▜%s\n' "$B" "$T" "$title" "$B" "$(repeat_char ▀ "$fill")" "$R"
+}
+
+# Word-wrap stdin into bubble rows; reads line by line so streamed text shows up early.
+bubble_body() {
+    local width="$1" inner=$(($1 - 4)) line word row blank=false
+    bubble_colors
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ -z "${line//[[:space:]]/}" ]]; then
+            # Collapse runs of blank lines into one empty bubble row.
+            $blank && continue
+            blank=true
+            printf '%s▌%s%*s%s▐%s\n' "$B" "$R" "$((inner + 2))" '' "$B" "$R"
+            continue
+        fi
+        blank=false
+        row=""
+        for word in $line; do
+            if [[ -n "$row" && $((${#row} + 1 + ${#word})) -gt $inner ]]; then
+                printf '%s▌%s %s%*s %s▐%s\n' "$B" "$R" "$row" "$((inner - ${#row}))" '' "$B" "$R"
+                row=""
+            fi
+            # Hard-split words longer than a whole row (paths, URLs).
+            while ((${#word} > inner)); do
+                printf '%s▌%s %s %s▐%s\n' "$B" "$R" "${word:0:inner}" "$B" "$R"
+                word="${word:inner}"
+            done
+            row="${row:+$row }$word"
+        done
+        printf '%s▌%s %s%*s %s▐%s\n' "$B" "$R" "$row" "$((inner - ${#row}))" '' "$B" "$R"
+    done
+}
+
+bubble_bottom() {
+    bubble_colors
+    printf '%s▙%s▟%s\n' "$B" "$(repeat_char ▄ "$(($1 - 2))")" "$R"
+}
+
+bubble_width() {
+    local cols="${1:-80}"
+    ((cols > 100)) && cols=100
+    printf '%s' "$((cols - 1))"
+}
+
+cmd_bubble() {
+    if [[ "${1:-}" == --plain ]]; then
+        export BUBBLE_PLAIN=1
+        shift
+    fi
+    local width
+    width="$(bubble_width "${1:-80}")"
+    bubble_top "$width" "${2:-AI}"
+    bubble_body "$width"
+    bubble_bottom "$width"
+}
+
+cmd_explain() {
+    local quiet=false
+    if [[ "${1:-}" == -q ]]; then
+        quiet=true
+        shift
+    fi
+    local cmd="${1:-}" active model keep key cache tmp
+    # Show at most 5 lines of long multi-line commands so the bubble stays in view.
+    if ! $quiet; then
+        head -n 5 <<<"$cmd"
+        (($(wc -l <<<"$cmd") > 5)) && printf '…\n'
+    fi
+    if ! active="$(active_model)"; then
+        $quiet && return 3
+        return 0
+    fi
+    model="$(cut -f1 <<<"$active")"
+    keep="$(cut -f2 <<<"$active")"
+
+    local width
+    width="$(bubble_width "${FZF_PREVIEW_COLUMNS:-80}")"
+    $quiet || bubble_top "$width" "$model"
+    key="$(printf '%s\0%s\0%s' "$model" "$OLLAMA_AI_LANG" "$cmd" | sha1sum | cut -c1-40)"
+    cache="$CACHE_DIR/$key"
+    if [[ -f "$cache" ]]; then
+        if $quiet; then
+            cat "$cache"
+        else
+            bubble_body "$width" <"$cache"
+            bubble_bottom "$width"
+        fi
+        return 0
+    fi
+
+    mkdir -p "$CACHE_DIR"
+    tmp="$cache.tmp.$$"
+    # Streamed so the preview fills while the model writes; fzf kills us on focus change.
+    generate "$model" "$keep" true \
+        "You explain shell commands to an experienced Linux user. Answer in $OLLAMA_AI_LANG, plain text, no markdown. One short summary sentence, then at most 5 short lines on the important parts (flags, pipes, side effects). Start a line with ⚠ if the command deletes, overwrites or changes something irreversibly." \
+        "$cmd" '{"temperature":0.2,"num_predict":300}' \
+        | jq --unbuffered -j '.response // empty' | tee "$tmp" \
+        | if $quiet; then cat; else bubble_body "$width"; fi
+    local status="${PIPESTATUS[0]}"
+    $quiet || bubble_bottom "$width"
+    # Only cache complete answers (an aborted preview leaves a partial file behind).
+    if [[ "$status" == 0 && -s "$tmp" ]]; then
+        mv -f "$tmp" "$cache"
+    else
+        rm -f "$tmp"
+    fi
+}
+
+cmd_complete() {
+    local buffer="$1" cwd="${2:-$PWD}" history active model keep out
+    [[ -n "$buffer" ]] || return 1
+    history="$(tail -n 30)"
+    active="$(active_model)" || return 1
+    model="$(cut -f1 <<<"$active")"
+    keep="$(cut -f2 <<<"$active")"
+
+    out="$(
+        generate "$model" "$keep" false \
+            "You are a zsh autocompletion engine. Reply with exactly one complete command line that starts with the given partial input, character for character. No explanation, no quotes, no markdown." \
+            "Working directory: $cwd
+Recent commands in this session (oldest first):
+$history
+
+Partial input: $buffer" \
+            '{"temperature":0,"num_predict":48,"stop":["\n"]}' \
+            | jq -r '.response // empty'
+    )" || return 1
+    # Models sometimes wrap the answer in backticks; drop them and surrounding blanks.
+    out="${out//\`/}"
+    out="${out#"${out%%[![:space:]]*}"}"
+    out="${out%"${out##*[![:space:]]}"}"
+    [[ "$out" == "$buffer"* && "$out" != "$buffer" ]] || return 1
+    printf '%s' "$out"
+}
+
+case "${1:-}" in
+    active) cmd_active ;;
+    explain) shift; cmd_explain "$@" ;;
+    complete) cmd_complete "${2:-}" "${3:-}" ;;
+    bubble) shift; cmd_bubble "$@" ;;
+    *)
+        echo "usage: ollama-ai active | explain CMD | complete BUFFER [CWD] <history" >&2
+        exit 2
+        ;;
+esac
