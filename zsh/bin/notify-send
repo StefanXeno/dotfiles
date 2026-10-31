@@ -10,9 +10,9 @@ set -euo pipefail
 # Skip notify-send options (tmux-notify may pass -u, -t, etc.)
 while [[ $# -gt 0 && "$1" == -* ]]; do
     case "$1" in
-        -u|--urgency) shift 2 ;;
-        -t|--expire-time|-i|--icon|-a|--app-name|-c|--category) shift 2 ;;
-        -h|--hint) shift 2 ;;
+        -u | --urgency) shift 2 ;;
+        -t | --expire-time | -i | --icon | -a | --app-name | -c | --category) shift 2 ;;
+        -h | --hint) shift 2 ;;
         *) shift ;;
     esac
 done

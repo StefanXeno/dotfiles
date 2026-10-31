@@ -1,0 +1,16 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "enabledManagers": ["mise", "github-actions", "custom.regex"],
+  "schedule": ["before 6am on monday"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Version pins in install.sh, marked with a '# renovate:' comment above the entry",
+      "managerFilePatterns": ["/^install\\.sh$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+)\\n\\s*\\[\"[^\"]+\"\\]=\"(?<currentValue>[^\"]+)\""
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+# Local quality gates. Tools come from mise (see mise/.config/mise/config.toml),
+# so hooks use `language: system` and need no extra downloads.
+#   make hooks       install the git hooks
+#   make lint        run everything against all files
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: local
+    hooks:
+      - id: gitleaks
+        name: gitleaks (staged changes)
+        entry: gitleaks git --pre-commit --staged --redact --no-banner
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Before a push: scan exactly the commits that are about to leave the machine.
+      - id: gitleaks-push
+        name: gitleaks (commits to push)
+        entry: bash -c 'gitleaks git --redact --no-banner --log-opts "${PRE_COMMIT_FROM_REF:-origin/HEAD}..${PRE_COMMIT_TO_REF:-HEAD}"'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: shellcheck
+        name: shellcheck (bash scripts)
+        entry: shellcheck -x
+        language: system
+        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings))$
+
+      # Same list as .github/workflows/shellcheck.yml — bash-compatible zsh modules only.
+      - id: shellcheck-zsh-modules
+        name: shellcheck (zsh modules, bash subset)
+        entry: shellcheck -x -s bash
+        language: system
+        files: ^zsh/\.zsh/(aliases|cheatsheets|fzf|k9s-functions|ollama|tmux)\.zsh$
+
+      - id: shfmt
+        name: shfmt (options from .editorconfig)
+        entry: shfmt -d
+        language: system
+        files: ^(install\.sh|test/.*\.sh|zsh/bin/(notify-send|ollama-menu|ollama-ai|wt-settings))$
