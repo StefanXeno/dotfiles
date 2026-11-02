@@ -47,12 +47,15 @@ win_ps() {
 cmd_up() {
     api_up && return 0
     command -v powershell.exe >/dev/null || die "Ollama unreachable at $OLLAMA_URL and no Windows interop"
-    # shellcheck disable=SC2016 # $env:LOCALAPPDATA is expanded by PowerShell, not bash
-    win_ps 'if (-not (Test-Path "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe")) { exit 1 }' \
-        || die "Ollama is not installed on Windows (no %LOCALAPPDATA%\\Programs\\Ollama\\ollama app.exe)"
+    # Start the server directly instead of the tray app: the app does not bring up its server when
+    # it is launched through WSL interop. Per-user and machine-wide installs are both found.
+    # shellcheck disable=SC2016 # the variables are expanded by PowerShell, not bash
+    local find='$p = @("$env:LOCALAPPDATA\Programs\Ollama\ollama.exe", "$env:ProgramFiles\Ollama\ollama.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1; if (-not $p) { exit 1 }; '
+    win_ps "$find"'exit 0' \
+        || die "Ollama is not installed on Windows (no ollama.exe in %LOCALAPPDATA%\\Programs\\Ollama or %ProgramFiles%\\Ollama)"
     echo "Starting Ollama on Windows ..." >&2
     # shellcheck disable=SC2016 # same here
-    win_ps 'Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe"'
+    win_ps "$find"'Start-Process -FilePath $p -ArgumentList serve -WindowStyle Hidden'
     local _
     for _ in {1..30}; do
         api_up && return 0
@@ -142,8 +145,8 @@ cmd_info() {
     if [[ -z "$name" ]]; then
         case "$action" in
             unload) printf '⏹ Unload all models\n\nFrees all (V)RAM.\nOllama itself keeps running.\n' ;;
-            down) printf '⏻ Stop Ollama\n\nStops "ollama app.exe" and the server on Windows.\nStart it again from this menu or via "opencode".\n' ;;
-            up) printf '▶ Start Ollama\n\nStarts "ollama app.exe" on Windows.\nReachable at %s\n' "$OLLAMA_URL" ;;
+            down) printf '⏻ Stop Ollama\n\nStops the Ollama server (and the tray app, if running) on Windows.\nStart it again from this menu or via "opencode".\n' ;;
+            up) printf '▶ Start Ollama\n\nStarts "ollama.exe serve" hidden on Windows (no tray app).\nReachable at %s\n' "$OLLAMA_URL" ;;
         esac
         return
     fi
