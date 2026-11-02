@@ -141,14 +141,6 @@ has_tools() {
         | jq -e --arg n "$1" '.models[] | select(.name == $n) | (.capabilities // []) | index("tools")' >/dev/null
 }
 
-# Ollama model opencode uses: the remembered choice, else the repo default.
-ollama_model() {
-    local m=""
-    [[ -r "$OLLAMA_MODEL_FILE" ]] && m="$(<"$OLLAMA_MODEL_FILE")"
-    [[ -n "$m" ]] || m="$(jq -r '.model // empty | select(startswith("ollama/")) | ltrimstr("ollama/")' "$OPENCODE_CONFIG" 2>/dev/null)"
-    printf '%s' "$m"
-}
-
 # Regenerate the opencode override for the active provider.
 write_opencode_config() {
     local active tmp name ctx
@@ -156,17 +148,24 @@ write_opencode_config() {
     active="$(ai_provider_name opencode)"
     tmp="$(mktemp "$OPENCODE_OVERRIDE.XXXXXX")"
     if [[ "$active" == ollama ]]; then
-        name="$(ollama_model)"
+        name=""
+        [[ -s "$OLLAMA_MODEL_FILE" ]] && name="$(<"$OLLAMA_MODEL_FILE")"
         if [[ -z "$name" ]]; then
-            # Nothing chosen yet: the repo config applies unchanged.
+            # No Ollama model chosen yet: the repo config applies unchanged.
             rm -f "$tmp" "$OPENCODE_OVERRIDE"
+            reload_opencode
             return 0
         fi
-        ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
-            | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072' 2>/dev/null)"
-        jq -n --arg n "$name" --argjson ctx "${ctx:-131072}" '
-            {model: ("ollama/" + $n), small_model: ("ollama/" + $n),
-             provider: {ollama: {models: {($n): {name: $n, limit: {context: $ctx, output: 16384}}}}}}' >"$tmp"
+        if jq -e --arg n "$name" '.provider.ollama.models[$n]' "$OPENCODE_CONFIG" >/dev/null 2>&1; then
+            # Already listed in the repo config: keep its limits, only select it.
+            jq -n --arg n "$name" '{model: ("ollama/" + $n), small_model: ("ollama/" + $n)}' >"$tmp"
+        else
+            ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
+                | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072' 2>/dev/null)"
+            jq -n --arg n "$name" --argjson ctx "${ctx:-131072}" '
+                {model: ("ollama/" + $n), small_model: ("ollama/" + $n),
+                 provider: {ollama: {models: {($n): {name: $n, limit: {context: $ctx, output: 16384}}}}}}' >"$tmp"
+        fi
     else
         ai_load "$active" || {
             rm -f "$tmp"
@@ -190,7 +189,11 @@ write_opencode_config() {
     }
     chmod 600 "$tmp"
     mv "$tmp" "$OPENCODE_OVERRIDE"
-    # opencode 2 keeps a background service with a cached config.
+    reload_opencode
+}
+
+# opencode 2 keeps a background service with a cached config.
+reload_opencode() {
     if command -v opencode >/dev/null; then
         opencode reload >/dev/null 2>&1 || true
     fi
