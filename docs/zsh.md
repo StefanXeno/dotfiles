@@ -78,10 +78,11 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 
 | Keys / Command | Action |
 |---|---|
-| `Ctrl+,` | Ollama menu: model list with live status preview — `Enter` opens model options, `Ctrl+O` toggles on/off |
+| `Ctrl+,` | AI chooser: first row picks the AI provider, then the Ollama model list with live status preview — `Enter` opens model options, `Ctrl+O` toggles on/off |
 | `Ctrl+.` | Explain the current command line with the active model (colored box, stays in the scrollback) |
 | `Ctrl+O` | Start opencode in the current directory |
 | `Enter` / `Ctrl+O` / `Esc` | In the menu: model options / quick on/off / back or close |
+| `ai-chooser provider [NAME]` | List the providers / make NAME the active one |
 | `ai-chooser status` | List models (`●` = loaded) |
 | `ai-chooser load MODEL` / `unload [MODEL]` | Load (unloading all others) / unload without the menu |
 | `opencode` | Starts Ollama if needed and preloads the configured model in the background |
@@ -91,9 +92,32 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 - Models switched on in the menu stay loaded until switched off (`keep_alive: -1`, override with `AI_CHOOSER_KEEP_ALIVE`).
 - opencode config (`~/.config/opencode/opencode.json`) is per machine and not tracked here.
 
+### AI providers
+
+One provider serves every AI request: opencode, the `Ctrl+R` / `Ctrl+.` explanations and the autosuggestions. `ollama` (Ollama on the Windows host) is built in. More providers go into `~/.config/ai/providers.local.json` — a per-machine file that is never committed, because it holds endpoints and the names of key variables:
+
+```json
+{
+  "my-server": {
+    "type": "openai",
+    "url": "https://ai.example.com/v1",
+    "model": "my-model",
+    "key_env": "MY_SERVER_KEY",
+    "trust": "trusted"
+  }
+}
+```
+
+- `type` is `ollama` or `openai` (any OpenAI-compatible `/chat/completions` server). `key_env` names an environment variable (for example exported in `~/.zshrc.local`); the key itself is never written to a file. `trust` (`local` / `trusted` / `cloud`) is reserved for confirming cloud providers later.
+- Optional: `extra_body` is merged into every chat request. For opencode, `name`, `timeout` and a `models` block (limits, capabilities) are copied into its provider.
+- The choice is stored in `~/.local/state/ai/active`. For opencode, `ai-chooser` generates `~/.local/state/ai/opencode.json` (key as `{env:NAME}`, mode 600); the `opencode` wrapper passes it as `OPENCODE_CONFIG` on top of the repo config, which stays a neutral template.
+- A plain `http://` URL to another host is flagged: prompts and the key would cross the network unencrypted. A key variable that is not set in the shell is flagged too.
+- Autosuggestions fire after every pause in typing, so an active remote provider receives your command lines and recent history all the time. Pick `ollama` when that is not wanted.
+- The opencode background service does not inherit your shell's key variable. The wrapper deliberately does not copy it there (the service would store it); set it with `opencode service set env NAME VALUE` if opencode cannot see the key.
+
 ### AI in the shell
 
-Uses only the model that is switched on (never loads one) and keeps its keep-alive:
+Uses the active provider (never loads an Ollama model) and keeps the model's keep-alive:
 
 - **Ctrl+R preview** — `ollama-ai explain` streams an explanation of the focused command into a rounded, colored box (cached in `~/.cache/dotfiles/ollama-explain`).
 - **Ctrl+.** — explains the current command line: a spinner runs behind the cursor while the answer streams uncolored below the prompt (`zle -M` prints escape codes raw), then the colored box is printed into the scrollback; any key cancels. Without an active model it says so behind the cursor.

@@ -2,6 +2,7 @@
 description: Local AI layer (ollama-ai, ai-chooser, Ctrl+R / Ctrl+. widgets, tmux and prompt segments) - conventions and pitfalls
 paths:
   - "zsh/bin/ollama-*"
+  - "zsh/bin/ai-*"
   - "zsh/bin/tmux-ai-status"
   - "zsh/bin/claude-usage"
   - "zsh/.zsh/ollama.zsh"
@@ -18,6 +19,13 @@ paths:
   must go through `active_model` in `ollama-ai`: it uses a 0.15 s connect timeout and remembers a dead
   Ollama for 5 s (`~/.cache/dotfiles/ollama-down`), because a Windows host that drops packets costs the
   full timeout on every call. Do not add bare `curl` calls to the hot paths.
+- **Providers stay private.** `~/.config/ai/providers.local.json` (endpoints, key variable names) is per
+  machine and outside the repo: no hostname, URL, model name or key of a real server in code, docs, tests
+  or commit messages (examples use `ai.example.com`). Keys are only ever referenced by variable name
+  (`key_env`, `{env:NAME}` in the generated opencode config) and sent to curl through a header file on a
+  pipe, never on the command line. `ai-lib.sh` is sourced by both scripts; `ai_active` runs on every
+  keystroke and must stay free of subprocesses for the default case. Do not write `a | grep -q` under
+  `pipefail` (SIGPIPE counts as failure): read the list into a variable first.
 - **opencode wrapper:** it starts Ollama only for an `ollama/...` model, and `ai-chooser up` reports when
   Ollama is not installed on Windows instead of waiting 30 s.
 - **Shell state is invisible to bash scripts.** `ollama.zsh` writes aliases and own functions to

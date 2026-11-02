@@ -38,7 +38,8 @@ dotfiles/
 │   ├── bin/
 │   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Ctrl+H
 │   │   ├── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
-│   │   ├── ai-chooser               # Ollama model toggle menu (Ctrl+,)
+│   │   ├── ai-chooser                # AI provider + Ollama model menu (Ctrl+,)
+│   │   ├── ai-lib.sh                 # Provider config lookup shared by ai-chooser and ollama-ai (sourced)
 │   │   ├── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
 │   │   ├── claude-usage              # Claude 5h rate-limit usage for the starship prompt
 │   │   ├── tmux-ai-status            # Claude usage + loaded Ollama model as tmux status segments
