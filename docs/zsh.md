@@ -94,7 +94,7 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 
 ### AI providers
 
-One provider serves every AI request: opencode, the `Ctrl+R` / `Ctrl+.` explanations and the autosuggestions. `ollama` (Ollama on the Windows host) is built in. More providers go into `~/.config/ai/providers.local.json` — a per-machine file that is never committed, because it holds endpoints and the names of key variables:
+The active provider serves every AI request: opencode, the `Ctrl+.` and `Ctrl+R` explanations and the autosuggestions. Each of these four features (`opencode`, `explain`, `history`, `autosuggest`) can also use a provider of its own. `ollama` (Ollama on the Windows host) is built in. More providers go into `~/.config/ai/providers.local.json` — a per-machine file that is never committed, because it holds endpoints and the names of key variables:
 
 ```json
 {
@@ -108,9 +108,12 @@ One provider serves every AI request: opencode, the `Ctrl+R` / `Ctrl+.` explanat
 }
 ```
 
-- `type` is `ollama` or `openai` (any OpenAI-compatible `/chat/completions` server). `key_env` names an environment variable (for example exported in `~/.zshrc.local`); the key itself is never written to a file. `trust` (`local` / `trusted` / `cloud`) is reserved for confirming cloud providers later.
+- `type` is `ollama` or `openai` (any OpenAI-compatible `/chat/completions` server). `key_env` names an environment variable (for example exported in `~/.zshrc.local`); the key itself is never written to a file. `trust` is `local`, `trusted` or `cloud` (default for a provider without it: `cloud`).
 - Optional: `extra_body` is merged into every chat request. For opencode, `name`, `timeout` and a `models` block (limits, capabilities) are copied into its provider.
-- The choice is stored in `~/.local/state/ai/active`. For opencode, `ai-chooser` generates `~/.local/state/ai/opencode.json` (key as `{env:NAME}`, mode 600); the `opencode` wrapper passes it as `OPENCODE_CONFIG` on top of the repo config, which stays a neutral template.
+- **Per feature:** `Ctrl+,` → "AI per feature", or `ai-chooser use [FEATURE [PROVIDER|follow]]` (`follow` = the active provider again). Overrides live in `~/.local/state/ai/features`.
+- **Cloud confirmation:** a `cloud` provider serves `explain`, `history` and `autosuggest` only after you confirmed it for that feature — they send command lines, history and working directories. The question comes when you pick it for a feature or make it the active provider; if you decline, the shell features stay on their previous provider. Answers are kept in `~/.local/state/ai/ack`; an unconfirmed feature shows "not confirmed". opencode needs no confirmation.
+- A provider whose `key_env` variable is not set is skipped without any request.
+- The active choice is stored in `~/.local/state/ai/active`. For opencode, `ai-chooser` generates `~/.local/state/ai/opencode.json` (key as `{env:NAME}`, mode 600); the `opencode` wrapper passes it as `OPENCODE_CONFIG` on top of the repo config, which stays a neutral template.
 - A plain `http://` URL to another host is flagged: prompts and the key would cross the network unencrypted. A key variable that is not set in the shell is flagged too.
 - Autosuggestions fire after every pause in typing, so an active remote provider receives your command lines and recent history all the time. Pick `ollama` when that is not wanted.
 - The opencode background service does not inherit your shell's key variable. The wrapper deliberately does not copy it there (the service would store it); set it with `opencode service set env NAME VALUE` if opencode cannot see the key.

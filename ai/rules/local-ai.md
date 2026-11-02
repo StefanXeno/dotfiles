@@ -25,6 +25,10 @@ paths:
   pipe, never on the command line. `ai-lib.sh` is sourced by both scripts; `ai_active` runs on every
   keystroke and must stay free of subprocesses for the default case. Do not write `a | grep -q` under
   `pipefail` (SIGPIPE counts as failure): read the list into a variable first.
+- **Cloud gate.** A `trust: cloud` provider serves the shell features (`explain`, `history`, `autosuggest`)
+  only after `ai_acked`; `ollama-ai` maps each command to its feature and gets `BLOCKED` from
+  `ai_load_for` (exit 2). New code that sends shell content to a provider must go through
+  `ai_load_for FEATURE`, never `ai_load` directly. A provider with an unset `key_env` is skipped without a request.
 - **opencode wrapper:** it starts Ollama only for an `ollama/...` model, and `ai-chooser up` reports when
   Ollama is not installed on Windows instead of waiting 30 s.
 - **Shell state is invisible to bash scripts.** `ollama.zsh` writes aliases and own functions to

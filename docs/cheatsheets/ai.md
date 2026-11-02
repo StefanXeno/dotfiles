@@ -29,7 +29,9 @@ Ollama runs on the Windows host, opencode in WSL. One AI provider serves every r
 |---|---|
 | `ai-chooser` | Open the AI chooser (same as `Ctrl+,`) |
 | `ai-chooser provider` | List the providers, `●` = active |
-| `ai-chooser provider NAME` | Make NAME the active provider for opencode and the shell helpers |
+| `ai-chooser provider NAME` | Make NAME the active provider (a cloud provider asks before it serves the shell features) |
+| `ai-chooser use` | List the provider of each feature: opencode, explain, history, autosuggest |
+| `ai-chooser use FEATURE PROVIDER` | Give one feature its own provider (`follow` = the active one again) |
 | `ai-chooser status` | List installed models, `●` = loaded |
 | `ai-chooser load MODEL` | Load MODEL (unloads all others) and keep it on until switched off |
 | `ai-chooser unload` | Unload all models and free the (V)RAM |
