@@ -1,5 +1,5 @@
 # Dev shortcuts for this repo. Tools (pre-commit, gitleaks, shellcheck, shfmt) come from mise.
-SHELL_FILES := install.sh ai/sync ai/link-skills $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ai-chooser zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status
+SHELL_FILES := install.sh ai/sync ai/link-skills $(wildcard test/*.sh) zsh/bin/notify-send zsh/bin/ai-chooser zsh/bin/ollama-ai zsh/bin/ai-lib.sh zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status
 STOW_PACKAGES := $(shell sed -n 's/^STOW_PACKAGES=(\(.*\))/\1/p' install.sh)
 
 .DEFAULT_GOAL := help

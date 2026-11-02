@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Shell helpers backed by the Ollama model that is currently switched on (see ai-chooser).
+# Shell helpers backed by the AI provider that is currently chosen (see ai-chooser): the Ollama
+# model that is switched on, or the model of an OpenAI-compatible server.
 # Never loads a model: without an active model every command degrades gracefully.
 #
-#   ollama-ai active              print the loaded model (exit 1 if none)
+#   ollama-ai active              print the active model (exit 1 if none)
 #   ollama-ai explain CMD         print CMD, then stream an explanation (Ctrl+R preview)
 #   ollama-ai explain -q CMD      explanation only; exit 3 if no model is on (Ctrl+.)
 #   ollama-ai complete BUFFER     print a completion for BUFFER (zsh-autosuggestions);
@@ -13,9 +14,9 @@ set -uo pipefail
 # No pathname expansion: word-splitting text like "du -sh *" must not glob.
 set -f
 
-# WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
-OLLAMA_WIN_HOST="${OLLAMA_WIN_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
-OLLAMA_URL="${OLLAMA_URL:-http://${OLLAMA_WIN_HOST}:11434}"
+HERE="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source=zsh/bin/ai-lib.sh
+source "$HERE/ai-lib.sh"
 OLLAMA_AI_LANG="${OLLAMA_AI_LANG:-English}"
 # Answer budget: short commands get a compact answer, big ones (multi-line, long, many pipes)
 # may list more parts and use more tokens. Override via the environment.
@@ -36,27 +37,39 @@ CTX_DISPLAY=()
 CTX_MODEL=""
 
 command -v jq >/dev/null || exit 1
+ai_load || exit 1
 
 # ${#var} must count characters, not bytes, for the bubble padding.
 [[ "$(locale charmap 2>/dev/null)" == UTF-8 ]] || export LC_ALL=C.UTF-8
 
-# Loaded model and the keep_alive that preserves its current lifetime: name<TAB>keep_alive.
-# Every request resets keep_alive, so pass the remaining time back instead of the 5m default.
-# A dead Ollama (not installed, stopped, a host that drops packets) would cost a connect timeout on
+# Active model and the keep_alive that preserves its current lifetime: name<TAB>keep_alive.
+# Ollama: the loaded model. Every request resets keep_alive, so pass the remaining time back
+# instead of the 5m default. OpenAI-compatible server: the configured model, keep_alive -1 (unused).
+# A dead provider (not installed, stopped, a host that drops packets) would cost a connect timeout on
 # every prompt, status refresh and keystroke. Remember "down" for a few seconds instead.
 DOWN_FLAG="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/ollama-down"
 DOWN_TTL=5
 
+mark_down() {
+    mkdir -p "${DOWN_FLAG%/*}"
+    printf '%s' "$P_URL" >"$DOWN_FLAG"
+}
+
 active_model() {
     local ps name expires now
     printf -v now '%(%s)T' -1
-    if [[ -f "$DOWN_FLAG" && "$(<"$DOWN_FLAG")" == "$OLLAMA_URL" ]] \
+    if [[ -f "$DOWN_FLAG" && "$(<"$DOWN_FLAG")" == "$P_URL" ]] \
         && ((now - $(stat -c %Y "$DOWN_FLAG" 2>/dev/null || echo 0) < DOWN_TTL)); then
         return 1
     fi
-    if ! ps="$(curl -s --connect-timeout 0.15 -m 0.5 "$OLLAMA_URL/api/ps")"; then
-        mkdir -p "${DOWN_FLAG%/*}"
-        printf '%s' "$OLLAMA_URL" >"$DOWN_FLAG"
+    if [[ "$P_TYPE" == openai ]]; then
+        # No probe: a request that fails sets the down flag (see generate).
+        [[ -n "$P_MODEL" ]] || return 1
+        printf '%s\t-1\n' "$P_MODEL"
+        return
+    fi
+    if ! ps="$(curl -s --connect-timeout 0.15 -m 0.5 "$P_URL/api/ps")"; then
+        mark_down
         return 1
     fi
     [[ ! -f "$DOWN_FLAG" ]] || rm -f "$DOWN_FLAG"
@@ -72,12 +85,51 @@ active_model() {
 }
 
 # generate MODEL KEEP_ALIVE STREAM SYSTEM PROMPT [OPTIONS_JSON]
+# Prints JSON lines with a "response" field for both provider types. OPTIONS_JSON uses Ollama's
+# names (temperature, num_predict, stop); they are mapped for OpenAI-compatible servers.
 generate() {
-    local opts="${6:-}"
-    jq -nc --arg m "$1" --argjson k "$2" --argjson s "$3" --arg sys "$4" --arg p "$5" \
-        --argjson o "${opts:-"{}"}" \
-        '{model: $m, keep_alive: $k, stream: $s, think: false, system: $sys, prompt: $p, options: $o}' \
-        | curl -sN -m 120 "$OLLAMA_URL/api/generate" -d @-
+    local opts="${6:-}" rc
+    if [[ "$P_TYPE" == openai ]]; then
+        generate_openai "$1" "$3" "$4" "$5" "$opts"
+        rc=$?
+    else
+        jq -nc --arg m "$1" --argjson k "$2" --argjson s "$3" --arg sys "$4" --arg p "$5" \
+            --argjson o "${opts:-"{}"}" \
+            '{model: $m, keep_alive: $k, stream: $s, think: false, system: $sys, prompt: $p, options: $o}' \
+            | curl -sN -m 120 "$P_URL/api/generate" -d @-
+        rc=$?
+    fi
+    ((rc == 0)) || mark_down
+    return "$rc"
+}
+
+# generate for an OpenAI-compatible server: POST /chat/completions. The key goes through a
+# curl header file on a pipe, not the command line (visible in ps).
+generate_openai() {
+    local model="$1" stream="$2" system="$3" prompt="$4" opts="$5" key body
+    key="$(ai_key)"
+    body="$(jq -nc --arg m "$model" --argjson s "$stream" --arg sys "$system" --arg p "$prompt" \
+        --argjson o "${opts:-"{}"}" --argjson x "$P_EXTRA" '
+        {model: $m, stream: $s, messages: [{role: "system", content: $sys}, {role: "user", content: $p}]}
+        + (if $o.temperature != null then {temperature: $o.temperature} else {} end)
+        + (if $o.num_predict != null then {max_tokens: $o.num_predict} else {} end)
+        + (if $o.stop != null then {stop: $o.stop} else {} end)
+        + $x')" || return 1
+    {
+        if [[ -n "$key" ]]; then
+            curl -sN --connect-timeout 3 -m 120 -H @<(printf 'Authorization: Bearer %s\n' "$key") \
+                -H 'Content-Type: application/json' "$P_URL/chat/completions" -d "$body"
+        else
+            curl -sN --connect-timeout 3 -m 120 \
+                -H 'Content-Type: application/json' "$P_URL/chat/completions" -d "$body"
+        fi
+    } | if [[ "$stream" == true ]]; then
+        jq --unbuffered -Rc 'select(startswith("data:")) | ltrimstr("data:") | ltrimstr(" ")
+            | select(. != "[DONE]") | fromjson?
+            | {response: (.choices[0].delta.content // "")}'
+    else
+        jq -c '{response: (.choices[0].message.content // "")}'
+    fi
 }
 
 cmd_active() {
@@ -443,9 +495,9 @@ cmd_explain() {
     if ! active="$(active_model)"; then
         $quiet && return 3
         # No model on: same card, with the command and a hint instead of an answer.
-        bubble_top "$width" "no local AI"
+        bubble_top "$width" "no AI"
         bubble_command "$width" "$cmd"
-        printf 'Press Ctrl+, to switch on a local model.\n' | bubble_body "$width"
+        printf 'Press Ctrl+, to pick an AI.\n' | bubble_body "$width"
         bubble_bottom "$width"
         return 0
     fi
@@ -456,7 +508,7 @@ cmd_explain() {
         bubble_top "$width" "$model"
         bubble_command "$width" "$cmd"
     fi
-    key="$(printf '%s\0%s\0%s\0%s\0%s' "$PROMPT_VERSION" "$parts/$tokens" "$model" "$OLLAMA_AI_LANG" "$cmd$CTX_MODEL" | sha1sum | cut -c1-40)"
+    key="$(printf '%s\0%s\0%s\0%s\0%s' "$PROMPT_VERSION" "$parts/$tokens" "$P_NAME/$model" "$OLLAMA_AI_LANG" "$cmd$CTX_MODEL" | sha1sum | cut -c1-40)"
     cache="$CACHE_DIR/$key"
     if [[ -f "$cache" ]]; then
         if $quiet; then
