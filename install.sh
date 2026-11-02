@@ -466,6 +466,38 @@ link_ai_skills() {
     "$DOTFILES_DIR/ai/link-skills"
 }
 
+# ---------- 7c. Claude Code statusLine ----------
+
+# `claude-usage record` is the statusLine command that feeds the 5-hour usage shown in the prompt
+# and the tmux status bar. ~/.claude/settings.json stays a local file (Claude Code stores hooks,
+# env and permissions there), so the entry is merged in instead of stowed. Needs jq (mise), so it
+# runs after install_mise. An existing statusLine is left alone.
+configure_claude_statusline() {
+    section "Claude Code statusLine"
+
+    local settings="$HOME/.claude/settings.json" tmp
+    if ! command_exists jq; then
+        warn "jq not found — skipping the Claude Code statusLine."
+        return
+    fi
+    mkdir -p "${settings%/*}"
+    [[ -f "$settings" ]] || echo '{}' >"$settings"
+
+    if jq -e 'has("statusLine")' "$settings" >/dev/null 2>&1; then
+        log "Claude Code statusLine already configured — skipping."
+        return
+    fi
+
+    tmp="$(mktemp "$settings.XXXXXX")"
+    if jq '. + {statusLine: {type: "command", command: "claude-usage record"}}' "$settings" >"$tmp"; then
+        mv "$tmp" "$settings"
+        log "Added the claude-usage statusLine to $settings"
+    else
+        rm -f "$tmp"
+        warn "Could not update $settings — add the statusLine manually."
+    fi
+}
+
 # ---------- 8. Create Local Template Files ----------
 
 create_local_templates() {
@@ -609,6 +641,7 @@ main() {
 
     # Now mise can find its config and install all tools (including fzf)
     install_mise
+    configure_claude_statusline
     install_starship
     install_tpm
     install_wsl_notify
