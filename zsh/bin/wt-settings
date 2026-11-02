@@ -8,7 +8,17 @@
 #
 # Not a stow package: Windows Terminal cannot read files inside WSL reliably at startup,
 # so the repo copy is synced explicitly instead of symlinked.
+#
+# Only the settings shared by all machines are synced. The profile list (WSL distros, store apps,
+# their GUIDs) and the default profile differ per PC: they stay as they are on each side. The repo
+# file therefore has neither "profiles.list" nor "defaultProfile"; put shared profile settings
+# (font, padding, ...) into "profiles.defaults".
 set -euo pipefail
+
+command -v jq >/dev/null || {
+    echo "wt-settings: jq not found" >&2
+    exit 1
+}
 
 DOTFILES_DIR="${DOTFILES_DIR:-$HOME/dotfiles}"
 REPO_FILE="$DOTFILES_DIR/windows-terminal/settings.json"
@@ -35,20 +45,38 @@ win_file() {
     die "Windows Terminal settings.json not found (set WT_SETTINGS=/mnt/c/...)"
 }
 
-# Windows Terminal may write CRLF; compare and store with LF only.
-normalized() {
-    tr -d '\r' <"$1"
+# The shared part of a settings file: without the machine-specific keys, keys sorted, and the
+# lists whose order does not matter (actions, keybindings, schemes) sorted by id / name, so that
+# formatting and ordering never show up as a difference. Windows Terminal may write CRLF.
+# "newTabMenu" keeps its order: it is the order of the menu.
+shared() {
+    tr -d '\r' <"$1" | jq -S --indent 4 '
+        del(.defaultProfile, .profiles.list)
+        | (if .actions then .actions |= sort_by(.id // "") else . end)
+        | (if .keybindings then .keybindings |= sort_by(.id // .keys // "") else . end)
+        | (if .schemes then .schemes |= sort_by(.name // "") else . end)'
 }
 
 in_sync() {
-    diff -q <(normalized "$1") "$REPO_FILE" >/dev/null
+    diff -q <(shared "$1") <(shared "$REPO_FILE") >/dev/null
+}
+
+# The repo settings with the machine-specific keys of the live file (when there is one).
+merged() {
+    local keep='{}'
+    if [[ -f "$1" ]]; then
+        keep="$(tr -d '\r' <"$1" | jq -c '{defaultProfile: .defaultProfile, list: .profiles.list} | with_entries(select(.value != null))')"
+    fi
+    shared "$REPO_FILE" | jq --indent 4 --argjson keep "$keep" '
+        (if $keep.defaultProfile then .defaultProfile = $keep.defaultProfile else . end)
+        | (if $keep.list then .profiles.list = $keep.list else . end)'
 }
 
 cmd_status() {
     local win="$1"
     [[ -f "$REPO_FILE" ]] || die "repo copy missing: $REPO_FILE (run: wt-settings pull)"
     if in_sync "$win"; then
-        echo "✓ in sync: $REPO_FILE"
+        echo "✓ in sync: $REPO_FILE (profile list and default profile are per machine)"
     else
         echo "✗ differs — 'wt-settings diff' to inspect, then 'push' or 'pull'"
         return 1
@@ -56,30 +84,34 @@ cmd_status() {
 }
 
 cmd_diff() {
-    diff -u --label "Windows (live)" --label "repo" <(normalized "$1") "$REPO_FILE"
+    diff -u --label "Windows (live)" --label "repo" <(shared "$1") <(shared "$REPO_FILE")
 }
 
 cmd_push() {
-    local win="$1" backup
+    local win="$1" backup tmp
     [[ -f "$REPO_FILE" ]] || die "repo copy missing: $REPO_FILE"
     if [[ -f "$win" ]] && in_sync "$win"; then
         echo "✓ already in sync"
         return
     fi
+    tmp="$(mktemp)"
+    # shellcheck disable=SC2064 # expand the path now
+    trap "rm -f '$tmp'" EXIT
+    merged "$win" >"$tmp"
     if [[ -f "$win" ]]; then
         backup="${win%.json}.backup-$(date +%Y%m%d-%H%M%S).json"
         cp "$win" "$backup"
         echo "Backup: $backup"
     fi
-    cp "$REPO_FILE" "$win"
-    echo "✓ pushed repo → Windows Terminal (it reloads automatically)"
+    cp "$tmp" "$win"
+    echo "✓ pushed repo → Windows Terminal, profile list and default profile kept (it reloads automatically)"
 }
 
 cmd_pull() {
     local win="$1"
     mkdir -p "${REPO_FILE%/*}"
-    normalized "$win" >"$REPO_FILE"
-    echo "✓ pulled Windows Terminal → $REPO_FILE"
+    shared "$win" >"$REPO_FILE"
+    echo "✓ pulled Windows Terminal → $REPO_FILE (without profile list and default profile)"
     git -C "$DOTFILES_DIR" --no-pager diff --stat -- "$REPO_FILE" 2>/dev/null || true
 }
 
