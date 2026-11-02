@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
-# Toggle Ollama models (running on the Windows host) from WSL via an fzf menu.
+# Choose the AI provider and control Ollama (running on the Windows host) from WSL via an fzf menu.
+# The chosen provider serves every AI request: opencode and the shell helpers (ollama-ai).
+# Providers are defined in ~/.config/ai/providers.local.json (see ai-lib.sh); "ollama" is built in.
 #
 #   ai-chooser              interactive menu (Ctrl+, in zsh)
+#   ai-chooser provider [P] list the providers, or make P the active one
 #   ai-chooser up           start Ollama on Windows if it is not reachable
 #   ai-chooser load MODEL   load MODEL into (V)RAM, unloading all others
 #   ai-chooser unload [M]   unload MODEL (or all models)
@@ -10,13 +13,20 @@
 #   ai-chooser default M    set M as the opencode default model
 set -uo pipefail
 
-# WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
-OLLAMA_WIN_HOST="${OLLAMA_WIN_HOST:-$(ip route show default 2>/dev/null | awk '{print $3; exit}')}"
-OLLAMA_URL="${OLLAMA_URL:-http://${OLLAMA_WIN_HOST}:11434}"
 # -1 = stay loaded until switched off in this menu (also accepts durations like "30m").
 AI_CHOOSER_KEEP_ALIVE="${AI_CHOOSER_KEEP_ALIVE:--1}"
 OPENCODE_CONFIG="${OPENCODE_CONFIG:-$HOME/.config/opencode/opencode.json}"
 SELF="$(realpath "${BASH_SOURCE[0]}")"
+# shellcheck source=zsh/bin/ai-lib.sh
+source "$(dirname "$SELF")/ai-lib.sh"
+# This script always controls Ollama, whichever provider is active.
+ai_load ollama
+OLLAMA_URL="$P_URL"
+# opencode reads this generated file on top of its repo config (OPENCODE_CONFIG, see ollama.zsh):
+# the repo file stays a neutral template. OLLAMA_MODEL_FILE remembers the Ollama model that
+# opencode uses whenever the provider is ollama.
+OPENCODE_OVERRIDE="$AI_STATE_DIR/opencode.json"
+OLLAMA_MODEL_FILE="$AI_STATE_DIR/ollama-model"
 
 die() {
     echo "ai-chooser: $*" >&2
@@ -101,8 +111,16 @@ cmd_load() {
     set_keep_alive "$target" "$keep"
 }
 
+# Model opencode starts with: the generated override wins over the repo config.
 opencode_default() {
-    jq -r '.model // empty' "$OPENCODE_CONFIG" 2>/dev/null
+    local f model
+    for f in "$OPENCODE_OVERRIDE" "$OPENCODE_CONFIG"; do
+        model="$(jq -r '.model // empty' "$f" 2>/dev/null)"
+        [[ -n "$model" ]] && {
+            printf '%s\n' "$model"
+            return
+        }
+    done
 }
 
 has_tools() {
@@ -110,24 +128,82 @@ has_tools() {
         | jq -e --arg n "$1" '.models[] | select(.name == $n) | (.capabilities // []) | index("tools")' >/dev/null
 }
 
-# Set opencode's default model; registers the model in the ollama provider if missing.
-cmd_default() {
-    local name="${1:?model name required}" ctx tmp config
-    [[ -f "$OPENCODE_CONFIG" ]] || die "opencode config not found: $OPENCODE_CONFIG"
-    # The config is a stow symlink into the dotfiles repo: write through it,
-    # otherwise mv would replace the link with a plain file.
-    config="$(readlink -f "$OPENCODE_CONFIG")"
-    ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
-        | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072')"
-    tmp="$(mktemp "${config}.XXXXXX")"
-    jq --arg n "$name" --argjson ctx "${ctx:-131072}" '
-        .model = "ollama/" + $n
-        | .provider.ollama.models[$n] //= {name: $n, limit: {context: $ctx, output: 16384}}
-    ' "$config" >"$tmp" && chmod --reference="$config" "$tmp" && mv "$tmp" "$config" || return 1
+# Ollama model opencode uses: the remembered choice, else the repo default.
+ollama_model() {
+    local m=""
+    [[ -r "$OLLAMA_MODEL_FILE" ]] && m="$(<"$OLLAMA_MODEL_FILE")"
+    [[ -n "$m" ]] || m="$(jq -r '.model // empty | select(startswith("ollama/")) | ltrimstr("ollama/")' "$OPENCODE_CONFIG" 2>/dev/null)"
+    printf '%s' "$m"
+}
+
+# Regenerate the opencode override for the active provider.
+write_opencode_config() {
+    local active tmp name ctx
+    mkdir -p "$AI_STATE_DIR"
+    active="$(ai_active)"
+    tmp="$(mktemp "$OPENCODE_OVERRIDE.XXXXXX")"
+    if [[ "$active" == ollama ]]; then
+        name="$(ollama_model)"
+        if [[ -z "$name" ]]; then
+            # Nothing chosen yet: the repo config applies unchanged.
+            rm -f "$tmp" "$OPENCODE_OVERRIDE"
+            return 0
+        fi
+        ctx="$(curl -s -m 5 "$OLLAMA_URL/api/tags" \
+            | jq -r --arg n "$name" '.models[] | select(.name == $n) | .details.context_length // 131072' 2>/dev/null)"
+        jq -n --arg n "$name" --argjson ctx "${ctx:-131072}" '
+            {model: ("ollama/" + $n), small_model: ("ollama/" + $n),
+             provider: {ollama: {models: {($n): {name: $n, limit: {context: $ctx, output: 16384}}}}}}' >"$tmp"
+    else
+        ai_load "$active" || {
+            rm -f "$tmp"
+            return 1
+        }
+        # The key is referenced as {env:NAME}, never written into the file.
+        jq -n --arg id "$active" --arg model "$P_MODEL" --arg url "$P_URL" --arg keyenv "$P_KEY_ENV" \
+            --slurpfile cfg "$AI_CONFIG_FILE" '
+            $cfg[0][$id] as $c
+            | {model: ($id + "/" + $model), small_model: ($id + "/" + $model),
+               provider: {($id): {
+                   npm: "@ai-sdk/openai-compatible",
+                   name: ($c.name // $id),
+                   options: ({baseURL: $url}
+                       + (if $keyenv != "" then {apiKey: ("{env:" + $keyenv + "}")} else {} end)
+                       + (if $c.timeout then {timeout: $c.timeout} else {} end)),
+                   models: ($c.models // {($model): {name: $model}})}}}' >"$tmp"
+    fi || {
+        rm -f "$tmp"
+        return 1
+    }
+    chmod 600 "$tmp"
+    mv "$tmp" "$OPENCODE_OVERRIDE"
     # opencode 2 keeps a background service with a cached config.
     if command -v opencode >/dev/null; then
         opencode reload >/dev/null 2>&1 || true
     fi
+}
+
+# Make NAME the active provider for opencode and the shell helpers.
+set_provider() {
+    local name="$1" names
+    # Not "ai_names | grep -q": grep exits on the first match and pipefail turns the SIGPIPE into a failure.
+    names="$(ai_names)"
+    grep -qxF "$name" <<<"$names" || {
+        echo "unknown provider: $name (defined in $AI_CONFIG_FILE)" >&2
+        return 1
+    }
+    mkdir -p "$AI_STATE_DIR"
+    printf '%s\n' "$name" >"$AI_STATE_DIR/active"
+    write_opencode_config
+}
+
+# Make an Ollama model opencode's default. That also makes ollama the active provider: one
+# provider serves every request.
+cmd_default() {
+    local name="${1:?model name required}"
+    mkdir -p "$AI_STATE_DIR"
+    printf '%s\n' "$name" >"$OLLAMA_MODEL_FILE"
+    set_provider ollama
 }
 
 # Start opencode with MODEL in the calling shell: the command is written to
@@ -145,6 +221,7 @@ cmd_info() {
     if [[ -z "$name" ]]; then
         case "$action" in
             unload) printf '⏹ Unload all models\n\nFrees all (V)RAM.\nOllama itself keeps running.\n' ;;
+            provider) cmd_provider_info ;;
             down) printf '⏻ Stop Ollama\n\nStops the Ollama server (and the tray app, if running) on Windows.\nStart it again from this menu or via "opencode".\n' ;;
             up) printf '▶ Start Ollama\n\nStarts "ollama.exe serve" hidden on Windows (no tray app).\nReachable at %s\n' "$OLLAMA_URL" ;;
         esac
@@ -178,6 +255,68 @@ cmd_info() {
           ] | .[]'
 }
 
+# One line per provider: name<TAB>label. The active one is marked ●.
+provider_rows() {
+    local active name
+    active="$(ai_active)"
+    while IFS= read -r name; do
+        (
+            ai_load "$name" || exit 0
+            mark="○"
+            [[ "$name" == "$active" ]] && mark="●"
+            printf '%s\t%s %-14s %-7s %-8s %s\n' "$name" "$mark" "$name" "$P_TYPE" "$P_TRUST" "${P_MODEL:-(loaded model)}"
+        )
+    done < <(ai_names)
+}
+
+# Preview for a provider: where it points, whether its key is set, what it serves.
+cmd_provider_info() {
+    local name="${1:-$(ai_active)}"
+    (
+        ai_load "$name" || {
+            echo "unknown provider: $name"
+            exit 0
+        }
+        printf '⇄ %s\n────────────────────────────\n' "$name"
+        printf 'Type:     %s\n' "$P_TYPE"
+        printf 'URL:      %s\n' "$P_URL"
+        printf 'Model:    %s\n' "${P_MODEL:-the model switched on in Ollama}"
+        printf 'Trust:    %s\n' "$P_TRUST"
+        if [[ -n "$P_KEY_ENV" ]]; then
+            if [[ -n "$(ai_key)" ]]; then
+                printf 'API key:  ✓ $%s is set\n' "$P_KEY_ENV"
+            else
+                printf 'API key:  ✗ $%s is not set in this shell\n' "$P_KEY_ENV"
+            fi
+        fi
+        printf '\nServes:   opencode, Ctrl+. / Ctrl+R explanations, autosuggest\n'
+        if ai_insecure "$P_URL"; then
+            printf '\n⚠ Plain http:// to another host: prompts and the key are not encrypted.\n'
+        fi
+        [[ "$name" == "$(ai_active)" ]] && printf '\n● active\n'
+    )
+}
+
+# `ai-chooser provider` lists, `ai-chooser provider NAME` switches.
+cmd_provider() {
+    local name="${1:-}"
+    if [[ -z "$name" ]]; then
+        provider_rows | cut -f2
+        return
+    fi
+    set_provider "$name" || return 1
+    (
+        ai_load "$name"
+        echo "⇄ $name is now the active AI provider (${P_MODEL:-Ollama})"
+        if ai_insecure "$P_URL"; then
+            echo "⚠ $P_URL is plain http:// to another host: prompts and the key are not encrypted" >&2
+        fi
+        if [[ -n "$P_KEY_ENV" && -z "$(ai_key)" ]]; then
+            echo "⚠ \$$P_KEY_ENV is not set in this shell: requests will fail until it is" >&2
+        fi
+    )
+}
+
 cmd_status() {
     local loaded name size mark
     loaded="$(loaded_models)"
@@ -190,7 +329,9 @@ cmd_status() {
 
 # Main menu rows: action<TAB>argument<TAB>label (only the label is shown).
 menu_rows() {
-    local line name def
+    local line name def active
+    active="$(ai_active)"
+    printf 'provider\t\t⇄ AI provider: %s (change)\n' "$active"
     if ! api_up; then
         printf 'up\t\t▶ Start Ollama (Windows)\n'
         return
@@ -295,7 +436,7 @@ busy() {
 cb_main_key() {
     local key="$1" action="$2" arg="$3"
     case "$key:$action" in
-        enter:model) printf 'accept' ;;
+        enter:model | enter:provider) printf 'accept' ;;
         ctrl-o:model)
             if is_loaded "$arg"; then
                 busy "Switching off $arg …" main "'$SELF' _do main '$arg' off"
@@ -390,6 +531,25 @@ model_menu() {
     run_model_action "$name" opencode >/dev/null || return 1
 }
 
+# Provider list: Enter makes the focused provider the active one.
+provider_menu() {
+    local selected name
+    selected="$(
+        provider_rows | menu_fzf \
+            --with-nth=2 \
+            --prompt='⇄ AI provider: ' \
+            --header=$'Enter: use this provider for everything · Esc: back' \
+            --preview "'$SELF' _provider-info {1}"
+    )" || return 0
+    name="$(cut -f1 <<<"$selected")"
+    flash="$(set_provider "$name" 2>&1 >/dev/null && cmd_provider_flash "$name")"
+}
+
+# One-line confirmation for the menu header.
+cmd_provider_flash() {
+    printf '⇄ %s is now the active AI provider' "$1"
+}
+
 cmd_menu() {
     command -v fzf >/dev/null || die "fzf not found"
     # Called directly (not from the zsh widget): run a picked command ourselves on exit.
@@ -415,9 +575,10 @@ menu_loop() {
     export AI_CHOOSER_STATE AI_CHOOSER_CMD_FILE
     # shellcheck disable=SC2064 # expand the path now
     trap "rm -rf '$AI_CHOOSER_STATE'" EXIT
-    local selected arg rows pos
+    local selected arg action rows pos flash=""
     while true; do
-        set_msg ""
+        set_msg "$flash"
+        flash=""
         rows="$(menu_rows)"
         # Back from a model menu: start on that model again.
         if [[ -n "${arg:-}" ]]; then
@@ -428,14 +589,20 @@ menu_loop() {
             menu_fzf <<<"$rows" \
                 --with-nth=3 \
                 --id-nth=1,2 \
-                --prompt='🤖 Models: ' \
+                --prompt='🤖 AI: ' \
                 --header="$(header_hints main)" \
                 --bind "load:transform:'$SELF' _load main" \
                 --bind "enter:transform:'$SELF' _main-key enter {1} {2}" \
                 --bind "ctrl-o:transform:'$SELF' _main-key ctrl-o {1} {2}" \
                 --preview "'$SELF' info {2} {1}"
         )" || return 0
+        action="$(cut -f1 <<<"$selected")"
         arg="$(cut -f2 <<<"$selected")"
+        if [[ "$action" == provider ]]; then
+            arg=""
+            provider_menu
+            continue
+        fi
         model_menu "$arg" || return 0
     done
 }
@@ -452,6 +619,8 @@ case "${1:-menu}" in
         ;;
     info) cmd_info "${2:-}" "${3:-}" ;;
     default) cmd_default "${2:-}" ;;
+    provider) cmd_provider "${2:-}" ;;
+    _provider-info) cmd_provider_info "${2:-}" ;;
     # Internal fzf callbacks (see "fzf callbacks" above).
     _header) cb_header "${2:-}" ;;
     _load) cb_load "${2:-}" ;;

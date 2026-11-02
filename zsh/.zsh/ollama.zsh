@@ -1,6 +1,8 @@
 # shellcheck shell=bash
 # Sourced by zsh — keep syntax bash-compatible where possible.
-# Local AI: Ollama runs on the Windows host, opencode runs in WSL (see zsh/bin/ai-chooser).
+# Local AI: Ollama runs on the Windows host, opencode runs in WSL. The AI provider (Ollama or an
+# OpenAI-compatible server from ~/.config/ai/providers.local.json) is picked with Ctrl+,
+# (see zsh/bin/ai-chooser).
 
 # WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
 OLLAMA_WIN_HOST="$(ip route show default 2>/dev/null | awk '{print $3; exit}')"
@@ -16,10 +18,14 @@ export OPENCODE_ENABLE_EXA=1
 _opencode_sync_service_env() {
     local env
     env="$(command opencode service get 2>/dev/null)" || return 0
+    # OPENCODE_CONFIG (the generated provider config) is only synced while set. An API key is not:
+    # the service would store it, so it has to be set there deliberately.
     if [[ "$(jq -r '.env.OLLAMA_WIN_HOST // empty' <<<"$env")" != "$OLLAMA_WIN_HOST" ||
-        "$(jq -r '.env.OPENCODE_ENABLE_EXA // empty' <<<"$env")" != "$OPENCODE_ENABLE_EXA" ]]; then
+        "$(jq -r '.env.OPENCODE_ENABLE_EXA // empty' <<<"$env")" != "$OPENCODE_ENABLE_EXA" ||
+        (-n "${OPENCODE_CONFIG:-}" && "$(jq -r '.env.OPENCODE_CONFIG // empty' <<<"$env")" != "$OPENCODE_CONFIG") ]]; then
         command opencode service set env OLLAMA_WIN_HOST "$OLLAMA_WIN_HOST" >/dev/null
         command opencode service set env OPENCODE_ENABLE_EXA "$OPENCODE_ENABLE_EXA" >/dev/null
+        [[ -z "${OPENCODE_CONFIG:-}" ]] || command opencode service set env OPENCODE_CONFIG "$OPENCODE_CONFIG" >/dev/null
         command opencode service restart >/dev/null 2>&1
     fi
 }
@@ -33,12 +39,18 @@ opencode() {
         return 127
     fi
     local model="" prev="" arg
+    # The provider chosen with Ctrl+, is written to a generated config that opencode reads on top
+    # of its repo config.
+    local override="${XDG_STATE_HOME:-$HOME/.local/state}/ai/opencode.json"
+    if [[ -f "$override" ]]; then
+        local -x OPENCODE_CONFIG="$override"
+    fi
     for arg in "$@"; do
         case "$prev" in -m | --model) model="$arg" ;; esac
         case "$arg" in --model=*) model="${arg#--model=}" ;; esac
         prev="$arg"
     done
-    [[ -z "$model" ]] && model="$(jq -r '.model // empty' "$HOME/.config/opencode/opencode.json" 2>/dev/null)"
+    [[ -z "$model" ]] && model="$(jq -r '.model // empty' "$override" "$HOME/.config/opencode/opencode.json" 2>/dev/null | head -n1)"
 
     # Start Ollama and preload the model only when opencode will actually use a local model.
     if [[ "$model" == ollama/* ]] && command -v ai-chooser &>/dev/null; then
@@ -50,7 +62,7 @@ opencode() {
     command opencode "$@"
 }
 
-# Ctrl+, — Ollama model menu. Windows Terminal sends CSI-u "\e[44;5u" for Ctrl+,
+# Ctrl+, — AI chooser (provider and Ollama models). Windows Terminal sends CSI-u "\e[44;5u" for Ctrl+,
 # (sendInput action); tmux re-sends it to the pane (see tmux/.tmux.conf).
 # shellcheck disable=SC1073,SC1072,SC1009 # zle widget bindings are zsh-only
 _ollama_menu_widget() {
@@ -159,7 +171,7 @@ _ollama_explain_widget() {
     local -a spinner=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 
     if ! model="$(ollama-ai active 2>/dev/null)"; then
-        _ollama_postdisplay "  ⚠ no local AI switched on (Ctrl+, to pick one)"
+        _ollama_postdisplay "  ⚠ no AI available (Ctrl+, to pick one)"
         return
     fi
 
