@@ -10,10 +10,18 @@
 # The built-in provider "ollama" (Ollama on the Windows host) always exists; an entry with the
 # same name overrides it (e.g. to point at another Ollama). "extra_body" is merged into every
 # OpenAI chat request; "name", "timeout" and "models" are only used for the opencode config.
-# The active provider is a single line in ~/.local/state/ai/active.
+# The active provider is a single line in ~/.local/state/ai/active. It serves every feature unless
+# the feature has its own provider ("feature=provider" lines in ~/.local/state/ai/features).
+# A "cloud" provider only serves the shell features after an explicit confirmation per feature
+# ("provider:feature" lines in ~/.local/state/ai/ack), because they send command lines, history
+# and directories to it. opencode needs no confirmation.
 
 AI_CONFIG_FILE="${AI_PROVIDERS_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/ai/providers.local.json}"
 AI_STATE_DIR="${AI_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/ai}"
+
+# Features that can use a provider of their own: the coding agent and three shell helpers
+# (Ctrl+. explanation, Ctrl+R history preview, grey autosuggestion).
+AI_FEATURES=(opencode explain history autosuggest)
 
 # Provider fields set by ai_load.
 P_NAME="" P_TYPE="" P_URL="" P_MODEL="" P_KEY_ENV="" P_TRUST="" P_EXTRA="{}"
@@ -33,6 +41,53 @@ ai_active() {
     else
         printf 'ollama'
     fi
+}
+
+# True for the features that send shell content (everything except opencode).
+ai_is_shell_feature() {
+    [[ "$1" != opencode ]]
+}
+
+# The provider a feature has chosen for itself (nothing when it follows the active one).
+ai_override() {
+    local k v
+    [[ -r "$AI_STATE_DIR/features" ]] || return 0
+    while IFS='=' read -r k v; do
+        if [[ "$k" == "$1" ]]; then
+            printf '%s' "$v"
+            return 0
+        fi
+    done <"$AI_STATE_DIR/features"
+}
+
+# Provider name for FEATURE: its own choice, else the active one. A provider that vanished from
+# the config is ignored.
+ai_provider_name() {
+    local name
+    name="$(ai_override "$1")"
+    if [[ -n "$name" && "$name" != ollama ]] && ! ai_in_config "$name"; then
+        name=""
+    fi
+    [[ -n "$name" ]] || name="$(ai_active)"
+    printf '%s' "$name"
+}
+
+# True when a cloud provider was confirmed for a feature.
+ai_acked() {
+    local line
+    [[ -r "$AI_STATE_DIR/ack" ]] || return 1
+    while IFS= read -r line; do
+        [[ "$line" == "$1:$2" ]] && return 0
+    done <"$AI_STATE_DIR/ack"
+    return 1
+}
+
+# Trust level of provider NAME.
+ai_trust_of() {
+    (
+        ai_load "$1" 2>/dev/null
+        printf '%s' "$P_TRUST"
+    )
 }
 
 # All provider names, "ollama" first.
@@ -83,4 +138,13 @@ ai_insecure() {
         localhost | 127.* | ::1 | "${OLLAMA_WIN_HOST:-}") return 1 ;;
     esac
     return 0
+}
+
+# Load the provider for FEATURE. Returns 2 when it is a cloud provider that was not confirmed for
+# this shell feature: the P_* variables are still set, so callers can name the provider.
+ai_load_for() {
+    ai_load "$(ai_provider_name "$1")" || return 1
+    if [[ "$P_TRUST" == cloud ]] && ai_is_shell_feature "$1" && ! ai_acked "$P_NAME" "$1"; then
+        return 2
+    fi
 }

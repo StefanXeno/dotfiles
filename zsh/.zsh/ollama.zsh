@@ -170,7 +170,7 @@ _ollama_explain_widget() {
     local out_file pid key model i=0
     local -a spinner=(⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏)
 
-    if ! model="$(ollama-ai active 2>/dev/null)"; then
+    if ! model="$(ollama-ai active explain 2>/dev/null)"; then
         _ollama_postdisplay "  ⚠ no AI available (Ctrl+, to pick one)"
         return
     fi

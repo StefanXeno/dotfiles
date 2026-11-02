@@ -5,6 +5,8 @@
 #
 #   ai-chooser              interactive menu (Ctrl+, in zsh)
 #   ai-chooser provider [P] list the providers, or make P the active one
+#   ai-chooser use [F [P]]  list the providers per feature (opencode, explain, history,
+#                           autosuggest), or give feature F provider P ("follow" = the active one)
 #   ai-chooser up           start Ollama on Windows if it is not reachable
 #   ai-chooser load MODEL   load MODEL into (V)RAM, unloading all others
 #   ai-chooser unload [M]   unload MODEL (or all models)
@@ -27,6 +29,8 @@ OLLAMA_URL="$P_URL"
 # opencode uses whenever the provider is ollama.
 OPENCODE_OVERRIDE="$AI_STATE_DIR/opencode.json"
 OLLAMA_MODEL_FILE="$AI_STATE_DIR/ollama-model"
+FEATURES_FILE="$AI_STATE_DIR/features"
+ACK_FILE="$AI_STATE_DIR/ack"
 
 die() {
     echo "ai-chooser: $*" >&2
@@ -149,7 +153,7 @@ ollama_model() {
 write_opencode_config() {
     local active tmp name ctx
     mkdir -p "$AI_STATE_DIR"
-    active="$(ai_active)"
+    active="$(ai_provider_name opencode)"
     tmp="$(mktemp "$OPENCODE_OVERRIDE.XXXXXX")"
     if [[ "$active" == ollama ]]; then
         name="$(ollama_model)"
@@ -192,18 +196,118 @@ write_opencode_config() {
     fi
 }
 
-# Make NAME the active provider for opencode and the shell helpers.
+# Ask on the terminal; false without one, so nothing is confirmed unattended.
+confirm() {
+    local ans
+    { : </dev/tty; } 2>/dev/null || return 1
+    printf '%s [y/N] ' "$1" >/dev/tty
+    read -r -n1 ans </dev/tty || return 1
+    printf '\n' >/dev/tty
+    [[ "$ans" == [yY] ]]
+}
+
+# Ask before a cloud provider serves shell features: they send command lines, shell history and
+# working directories to it. Remembers the answer per provider and feature.
+confirm_cloud() {
+    local provider="$1" f
+    local -a need=()
+    shift
+    for f in "$@"; do
+        ai_acked "$provider" "$f" || need+=("$f")
+    done
+    ((${#need[@]})) || return 0
+    confirm "⚠ '$provider' is a cloud provider. Using it for ${need[*]} sends your command lines, shell history and working directories to it. Allow?" || return 1
+    mkdir -p "$AI_STATE_DIR"
+    for f in "${need[@]}"; do
+        printf '%s:%s\n' "$provider" "$f" >>"$ACK_FILE"
+    done
+}
+
+# Give FEATURE its own provider P, or none (empty): the feature then follows the active provider.
+set_override() {
+    local tmp
+    mkdir -p "$AI_STATE_DIR"
+    tmp="$(mktemp "$FEATURES_FILE.XXXXXX")"
+    {
+        [[ -r "$FEATURES_FILE" ]] && awk -F= -v f="$1" '$1 != f' "$FEATURES_FILE"
+        [[ -z "$2" ]] || printf '%s=%s\n' "$1" "$2"
+    } >"$tmp"
+    mv "$tmp" "$FEATURES_FILE"
+}
+
+is_feature() {
+    local f
+    for f in "${AI_FEATURES[@]}"; do
+        [[ "$f" == "$1" ]] && return 0
+    done
+    return 1
+}
+
+# Make NAME the active provider: it serves every feature that has no provider of its own. A cloud
+# provider needs a confirmation for the shell features that would switch to it; without one they
+# stay on the provider they used before.
 set_provider() {
-    local name="$1" names
-    # Not "ai_names | grep -q": grep exits on the first match and pipefail turns the SIGPIPE into a failure.
+    local name="$1" names f
+    local -A prev=()
+    local -a inherit=()
     names="$(ai_names)"
+    # Not "ai_names | grep -q": grep exits on the first match and pipefail turns the SIGPIPE into a failure.
     grep -qxF "$name" <<<"$names" || {
         echo "unknown provider: $name (defined in $AI_CONFIG_FILE)" >&2
         return 1
     }
+    for f in "${AI_FEATURES[@]}"; do
+        prev[$f]="$(ai_provider_name "$f")"
+    done
     mkdir -p "$AI_STATE_DIR"
     printf '%s\n' "$name" >"$AI_STATE_DIR/active"
+    if [[ "$(ai_trust_of "$name")" == cloud ]]; then
+        for f in "${AI_FEATURES[@]}"; do
+            if ai_is_shell_feature "$f" && [[ -z "$(ai_override "$f")" ]]; then
+                inherit+=("$f")
+            fi
+        done
+        if ((${#inherit[@]})) && ! confirm_cloud "$name" "${inherit[@]}"; then
+            for f in "${inherit[@]}"; do
+                set_override "$f" "${prev[$f]}"
+            done
+            echo "↩ ${inherit[*]} stay on their previous provider"
+        fi
+    fi
     write_opencode_config
+}
+
+# Give FEATURE the provider P ("follow": the active one). A cloud provider for a shell feature
+# needs a confirmation.
+set_feature() {
+    local f="$1" p="$2" target names
+    is_feature "$f" || {
+        echo "unknown feature: $f (${AI_FEATURES[*]})" >&2
+        return 1
+    }
+    if [[ "$p" == follow ]]; then
+        target="$(ai_active)"
+    else
+        names="$(ai_names)"
+        grep -qxF "$p" <<<"$names" || {
+            echo "unknown provider: $p (defined in $AI_CONFIG_FILE)" >&2
+            return 1
+        }
+        target="$p"
+    fi
+    if ai_is_shell_feature "$f" && [[ "$(ai_trust_of "$target")" == cloud ]]; then
+        confirm_cloud "$target" "$f" || {
+            echo "✗ $f stays on $(ai_provider_name "$f"): $target was not confirmed"
+            return 1
+        }
+    fi
+    if [[ "$p" == follow ]]; then
+        set_override "$f" ""
+    else
+        set_override "$f" "$p"
+    fi
+    write_opencode_config
+    echo "⚙ $f now uses $(ai_provider_name "$f")"
 }
 
 # Make an Ollama model opencode's default. That also makes ollama the active provider: one
@@ -231,6 +335,7 @@ cmd_info() {
         case "$action" in
             unload) printf '⏹ Unload all models\n\nFrees all (V)RAM.\nOllama itself keeps running.\n' ;;
             provider) cmd_provider_info ;;
+            features) cmd_feature_info ;;
             down) printf '⏻ Stop Ollama\n\nStops the Ollama server (and the tray app, if running) on Windows.\nStart it again from this menu or via "opencode".\n' ;;
             up) printf '▶ Start Ollama\n\nStarts "ollama.exe serve" hidden on Windows (no tray app).\nReachable at %s\n' "$OLLAMA_URL" ;;
         esac
@@ -280,7 +385,15 @@ provider_rows() {
 
 # Preview for a provider: where it points, whether its key is set, what it serves.
 cmd_provider_info() {
-    local name="${1:-$(ai_active)}"
+    local name="${1:-$(ai_active)}" f
+    local -a serves=()
+    if [[ "$name" == follow ]]; then
+        printf '↩ follow the active provider\n\nThe feature uses whichever provider is active (row "AI provider").\n'
+        return
+    fi
+    for f in "${AI_FEATURES[@]}"; do
+        [[ "$(ai_provider_name "$f")" == "$name" ]] && serves+=("$f")
+    done
     (
         ai_load "$name" || {
             echo "unknown provider: $name"
@@ -298,7 +411,10 @@ cmd_provider_info() {
                 printf 'API key:  ✗ $%s is not set in this shell\n' "$P_KEY_ENV"
             fi
         fi
-        printf '\nServes:   opencode, Ctrl+. / Ctrl+R explanations, autosuggest\n'
+        printf '\nServes:   %s\n' "${serves[*]:-nothing right now}"
+        if [[ "$P_TRUST" == cloud ]]; then
+            printf '          shell features need your confirmation for this provider\n'
+        fi
         if ai_insecure "$P_URL"; then
             printf '\n⚠ Plain http:// to another host: prompts and the key are not encrypted.\n'
         fi
@@ -341,6 +457,7 @@ menu_rows() {
     local line name def active
     active="$(ai_active)"
     printf 'provider\t\t⇄ AI provider: %s (change)\n' "$active"
+    printf 'features\t\t⚙ AI per feature (opencode, explain, history, autosuggest)\n'
     if ! api_up; then
         printf 'up\t\t▶ Start Ollama (Windows)\n'
         return
@@ -445,7 +562,7 @@ busy() {
 cb_main_key() {
     local key="$1" action="$2" arg="$3"
     case "$key:$action" in
-        enter:model | enter:provider) printf 'accept' ;;
+        enter:model | enter:provider | enter:features) printf 'accept' ;;
         ctrl-o:model)
             if is_loaded "$arg"; then
                 busy "Switching off $arg …" main "'$SELF' _do main '$arg' off"
@@ -540,23 +657,79 @@ model_menu() {
     run_model_action "$name" opencode >/dev/null || return 1
 }
 
-# Provider list: Enter makes the focused provider the active one.
-provider_menu() {
-    local selected name
+# fzf list of the providers (plus "follow the active provider" with $2 = follow); prints the name.
+pick_provider() {
+    local selected
     selected="$(
-        provider_rows | menu_fzf \
+        {
+            [[ "${2:-}" == follow ]] && printf 'follow\t↩ follow the active provider\n'
+            provider_rows
+        } | menu_fzf \
             --with-nth=2 \
-            --prompt='⇄ AI provider: ' \
-            --header=$'Enter: use this provider for everything · Esc: back' \
+            --prompt="$1" \
+            --header=$'Enter: choose · Esc: back' \
             --preview "'$SELF' _provider-info {1}"
-    )" || return 0
-    name="$(cut -f1 <<<"$selected")"
-    flash="$(set_provider "$name" 2>&1 >/dev/null && cmd_provider_flash "$name")"
+    )" || return 1
+    cut -f1 <<<"$selected"
 }
 
-# One-line confirmation for the menu header.
-cmd_provider_flash() {
-    printf '⇄ %s is now the active AI provider' "$1"
+# Provider list: Enter makes the focused provider the active one.
+provider_menu() {
+    local name
+    name="$(pick_provider '⇄ AI provider: ')" || return 0
+    flash="$(cmd_provider "$name" 2>&1 | tr '\n' ' ')"
+}
+
+# One row per feature: feature<TAB>label.
+feature_rows() {
+    local f p note
+    for f in "${AI_FEATURES[@]}"; do
+        p="$(ai_provider_name "$f")"
+        note=""
+        [[ -n "$(ai_override "$f")" ]] || note=" (follows the active provider)"
+        if ai_is_shell_feature "$f" && [[ "$(ai_trust_of "$p")" == cloud ]] && ! ai_acked "$p" "$f"; then
+            note+=" ⚠ not confirmed"
+        fi
+        printf '%s\t%-11s → %s%s\n' "$f" "$f" "$p" "$note"
+    done
+}
+
+cmd_feature_info() {
+    case "${1:-}" in
+        opencode) printf 'opencode\n\nThe coding agent: every model request of opencode.\n' ;;
+        explain) printf 'explain (Ctrl+.)\n\nExplains the command line you are typing.\nSends the command and the aliases it uses.\n' ;;
+        history) printf 'history (Ctrl+R)\n\nThe explanation in the history preview.\nSends each command you move over.\n' ;;
+        autosuggest) printf 'autosuggest\n\nThe grey completion while you type.\nSends your partial command, directory and recent\ncommands after every pause in typing.\n' ;;
+        *) printf 'AI per feature\n\nGive opencode, explain, history and autosuggest\ntheir own provider. A cloud provider needs your\nconfirmation for the three shell features.\n\n' && feature_rows | cut -f2 ;;
+    esac
+}
+
+# Per-feature provider: pick a feature, then its provider.
+features_menu() {
+    local selected f chosen
+    while true; do
+        selected="$(
+            feature_rows | menu_fzf \
+                --with-nth=2 \
+                --prompt='⚙ AI per feature: ' \
+                --header=$'Enter: choose the provider for this feature · Esc: back' \
+                --preview "'$SELF' _feature-info {1}"
+        )" || return 0
+        f="$(cut -f1 <<<"$selected")"
+        chosen="$(pick_provider "⇄ $f: " follow)" || continue
+        flash="$(set_feature "$f" "$chosen" 2>&1 | tr '\n' ' ')"
+    done
+}
+
+# `ai-chooser use` lists, `ai-chooser use FEATURE PROVIDER|follow` sets.
+cmd_use() {
+    local f="${1:-}" p="${2:-}"
+    if [[ -z "$f" ]]; then
+        feature_rows | cut -f2
+        return
+    fi
+    [[ -n "$p" ]] || die "usage: ai-chooser use FEATURE PROVIDER|follow (features: ${AI_FEATURES[*]})"
+    set_feature "$f" "$p"
 }
 
 cmd_menu() {
@@ -607,9 +780,9 @@ menu_loop() {
         )" || return 0
         action="$(cut -f1 <<<"$selected")"
         arg="$(cut -f2 <<<"$selected")"
-        if [[ "$action" == provider ]]; then
+        if [[ "$action" == provider || "$action" == features ]]; then
             arg=""
-            provider_menu
+            if [[ "$action" == provider ]]; then provider_menu; else features_menu; fi
             continue
         fi
         model_menu "$arg" || return 0
@@ -629,6 +802,8 @@ case "${1:-menu}" in
     info) cmd_info "${2:-}" "${3:-}" ;;
     default) cmd_default "${2:-}" ;;
     provider) cmd_provider "${2:-}" ;;
+    use) cmd_use "${2:-}" "${3:-}" ;;
+    _feature-info) cmd_feature_info "${2:-}" ;;
     _provider-info) cmd_provider_info "${2:-}" ;;
     # Internal fzf callbacks (see "fzf callbacks" above).
     _header) cb_header "${2:-}" ;;

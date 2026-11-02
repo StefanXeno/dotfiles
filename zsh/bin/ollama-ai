@@ -3,7 +3,8 @@
 # model that is switched on, or the model of an OpenAI-compatible server.
 # Never loads a model: without an active model every command degrades gracefully.
 #
-#   ollama-ai active              print the active model (exit 1 if none)
+#   ollama-ai active [FEATURE]    print the active model (exit 1 if none); FEATURE is one of
+#                                 opencode, explain, history, autosuggest
 #   ollama-ai explain CMD         print CMD, then stream an explanation (Ctrl+R preview)
 #   ollama-ai explain -q CMD      explanation only; exit 3 if no model is on (Ctrl+.)
 #   ollama-ai complete BUFFER     print a completion for BUFFER (zsh-autosuggestions);
@@ -37,7 +38,25 @@ CTX_DISPLAY=()
 CTX_MODEL=""
 
 command -v jq >/dev/null || exit 1
-ai_load || exit 1
+# Each command serves one feature, and each feature may have its own provider (see ai-lib.sh).
+FEATURE=""
+case "${1:-}" in
+    active) FEATURE="${2:-}" ;;
+    explain) [[ "${2:-}" == -q ]] && FEATURE=explain || FEATURE=history ;;
+    complete) FEATURE=autosuggest ;;
+esac
+# BLOCKED: the feature's provider is a cloud one that was not confirmed (see ai-chooser).
+BLOCKED=0
+if [[ -n "$FEATURE" ]]; then
+    ai_load_for "$FEATURE"
+    case $? in
+        0) ;;
+        2) BLOCKED=1 ;;
+        *) exit 1 ;;
+    esac
+else
+    ai_load || exit 1
+fi
 
 # ${#var} must count characters, not bytes, for the bubble padding.
 [[ "$(locale charmap 2>/dev/null)" == UTF-8 ]] || export LC_ALL=C.UTF-8
@@ -57,14 +76,17 @@ mark_down() {
 
 active_model() {
     local ps name expires now
+    ((BLOCKED)) && return 1
     printf -v now '%(%s)T' -1
     if [[ -f "$DOWN_FLAG" && "$(<"$DOWN_FLAG")" == "$P_URL" ]] \
         && ((now - $(stat -c %Y "$DOWN_FLAG" 2>/dev/null || echo 0) < DOWN_TTL)); then
         return 1
     fi
     if [[ "$P_TYPE" == openai ]]; then
-        # No probe: a request that fails sets the down flag (see generate).
+        # No probe: a request that fails sets the down flag (see generate). A missing key would
+        # only produce a 401 for every keystroke, so do not ask at all.
         [[ -n "$P_MODEL" ]] || return 1
+        [[ -z "$P_KEY_ENV" || -n "${!P_KEY_ENV:-}" ]] || return 1
         printf '%s\t-1\n' "$P_MODEL"
         return
     fi
@@ -495,9 +517,19 @@ cmd_explain() {
     if ! active="$(active_model)"; then
         $quiet && return 3
         # No model on: same card, with the command and a hint instead of an answer.
-        bubble_top "$width" "no AI"
-        bubble_command "$width" "$cmd"
-        printf 'Press Ctrl+, to pick an AI.\n' | bubble_body "$width"
+        if ((BLOCKED)); then
+            bubble_top "$width" "not confirmed"
+            bubble_command "$width" "$cmd"
+            printf '%s is a cloud provider: confirm it for this feature with Ctrl+,\n' "$P_NAME" | bubble_body "$width"
+        elif [[ "$P_TYPE" == openai && -n "$P_KEY_ENV" && -z "${!P_KEY_ENV:-}" ]]; then
+            bubble_top "$width" "no API key"
+            bubble_command "$width" "$cmd"
+            printf '$%s is not set in this shell (provider %s).\n' "$P_KEY_ENV" "$P_NAME" | bubble_body "$width"
+        else
+            bubble_top "$width" "no AI"
+            bubble_command "$width" "$cmd"
+            printf 'Press Ctrl+, to pick an AI.\n' | bubble_body "$width"
+        fi
         bubble_bottom "$width"
         return 0
     fi
