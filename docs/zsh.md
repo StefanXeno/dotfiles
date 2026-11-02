@@ -82,13 +82,13 @@ Ollama runs on the **Windows host** (exposed to the network); [opencode](https:/
 | `Ctrl+.` | Explain the current command line with the active model (colored box, stays in the scrollback) |
 | `Ctrl+O` | Start opencode in the current directory |
 | `Enter` / `Ctrl+O` / `Esc` | In the menu: model options / quick on/off / back or close |
-| `ollama-menu status` | List models (`●` = loaded) |
-| `ollama-menu load MODEL` / `unload [MODEL]` | Load (unloading all others) / unload without the menu |
+| `ai-chooser status` | List models (`●` = loaded) |
+| `ai-chooser load MODEL` / `unload [MODEL]` | Load (unloading all others) / unload without the menu |
 | `opencode` | Starts Ollama if needed and preloads the configured model in the background |
 
 - Model options: switch on/off, restart, keep-alive (until off / 1h / 30m / 5m), set as opencode default, set as default and start opencode.
 - opencode 2 has no per-launch model flag — "start opencode" sets the default and runs `opencode reload` first.
-- Models switched on in the menu stay loaded until switched off (`keep_alive: -1`, override with `OLLAMA_MENU_KEEP_ALIVE`).
+- Models switched on in the menu stay loaded until switched off (`keep_alive: -1`, override with `AI_CHOOSER_KEEP_ALIVE`).
 - opencode config (`~/.config/opencode/opencode.json`) is per machine and not tracked here.
 
 ### AI in the shell
@@ -111,7 +111,7 @@ Terminals do not send distinct sequences for `Ctrl+,` / `Ctrl+.`, and Windows Te
 
 1. **Windows Terminal** ([`windows-terminal/settings.json`](../windows-terminal/settings.json), action `User.sendInput.OllamaMenu`) sends CSI-u `\e[44;5u` instead of opening *Settings*.
 2. **tmux** parses it as `C-,` and would only pass `,` to the pane, so it re-sends the full sequence (`send-keys`).
-3. **zsh**: `ollama.zsh` binds `\e[44;5u` to a zle widget that runs `ollama-menu` inline (like `Ctrl+T`).
+3. **zsh**: `ollama.zsh` binds `\e[44;5u` to a zle widget that runs `ai-chooser` inline (like `Ctrl+T`).
 
 ## Windows Terminal settings
 

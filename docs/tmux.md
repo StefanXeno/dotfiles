@@ -18,7 +18,7 @@ Close it by exiting the shell (`exit` or `Ctrl+d`) or pressing the binding again
 
 ### Ollama menu
 
-`Ctrl+,` and `Ctrl+.` (no prefix) are forwarded to zsh: `Ctrl+,` opens `ollama-menu` inline to switch local AI models on/off, `Ctrl+.` explains the current command line — see [zsh docs](zsh.md#local-ai-ollama--opencode).
+`Ctrl+,` and `Ctrl+.` (no prefix) are forwarded to zsh: `Ctrl+,` opens `ai-chooser` inline to switch local AI models on/off, `Ctrl+.` explains the current command line — see [zsh docs](zsh.md#local-ai-ollama--opencode).
 
 ### Zoom
 

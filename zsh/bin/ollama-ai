@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shell helpers backed by the Ollama model that is currently switched on (see ollama-menu).
+# Shell helpers backed by the Ollama model that is currently switched on (see ai-chooser).
 # Never loads a model: without an active model every command degrades gracefully.
 #
 #   ollama-ai active              print the loaded model (exit 1 if none)

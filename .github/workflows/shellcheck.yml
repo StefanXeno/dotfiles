@@ -6,7 +6,7 @@ on:
       - '**.sh'
       - '**.zsh'
       - 'zsh/bin/notify-send'
-      - 'zsh/bin/ollama-menu'
+      - 'zsh/bin/ai-chooser'
       - 'zsh/bin/ollama-ai'
       - 'zsh/bin/claude-usage'
       - 'zsh/bin/tmux-ai-status'
@@ -19,7 +19,7 @@ on:
       - '**.sh'
       - '**.zsh'
       - 'zsh/bin/notify-send'
-      - 'zsh/bin/ollama-menu'
+      - 'zsh/bin/ai-chooser'
       - 'zsh/bin/ollama-ai'
       - 'zsh/bin/claude-usage'
       - 'zsh/bin/tmux-ai-status'
@@ -50,4 +50,4 @@ jobs:
             zsh/.zsh/tmux.zsh
 
       - name: Run shellcheck on zsh/bin scripts
-        run: shellcheck -x zsh/bin/notify-send zsh/bin/ollama-menu zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status ai/sync ai/link-skills
+        run: shellcheck -x zsh/bin/notify-send zsh/bin/ai-chooser zsh/bin/ollama-ai zsh/bin/wt-settings zsh/bin/claude-usage zsh/bin/tmux-ai-status ai/sync ai/link-skills

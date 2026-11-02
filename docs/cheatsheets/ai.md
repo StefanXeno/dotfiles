@@ -27,13 +27,13 @@ Ollama runs on the Windows host, opencode in WSL. Everything uses the model that
 
 | Command | What it does |
 |---|---|
-| `ollama-menu` | Open the Ollama model menu (same as `Ctrl+,`) |
-| `ollama-menu status` | List installed models, `●` = loaded |
-| `ollama-menu load MODEL` | Load MODEL (unloads all others) and keep it on until switched off |
-| `ollama-menu unload` | Unload all models and free the (V)RAM |
-| `ollama-menu up` | Start Ollama on Windows if it is not reachable |
-| `ollama-menu down` | Stop Ollama on Windows |
-| `ollama-menu default MODEL` | Set MODEL as the opencode default and reload opencode |
+| `ai-chooser` | Open the Ollama model menu (same as `Ctrl+,`) |
+| `ai-chooser status` | List installed models, `●` = loaded |
+| `ai-chooser load MODEL` | Load MODEL (unloads all others) and keep it on until switched off |
+| `ai-chooser unload` | Unload all models and free the (V)RAM |
+| `ai-chooser up` | Start Ollama on Windows if it is not reachable |
+| `ai-chooser down` | Stop Ollama on Windows |
+| `ai-chooser default MODEL` | Set MODEL as the opencode default and reload opencode |
 | `ollama-ai active` | Print the model that is currently switched on |
 | `ollama-ai explain CMD` | Explain a shell command with the active model |
 | `opencode` | Start opencode; starts Ollama and preloads the configured model first |

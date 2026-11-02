@@ -38,7 +38,7 @@ dotfiles/
 │   ├── bin/
 │   │   ├── cs-parse-cheatsheets.awk  # Markdown table parser for cs / Ctrl+H
 │   │   ├── notify-send               # WSL/Linux notify-send shim (on PATH via ~/bin)
-│   │   ├── ollama-menu               # Ollama model toggle menu (Ctrl+,)
+│   │   ├── ai-chooser               # Ollama model toggle menu (Ctrl+,)
 │   │   ├── ollama-ai                 # Local-AI explain / autocomplete helpers (Ctrl+R, Ctrl+.)
 │   │   ├── claude-usage              # Claude 5h rate-limit usage for the starship prompt
 │   │   ├── tmux-ai-status            # Claude usage + loaded Ollama model as tmux status segments
@@ -69,7 +69,7 @@ dotfiles/
 │   ├── cheatsheets/            # Commands & aliases only (used by cs / Ctrl+H)
 │   │   ├── tmux.md
 │   │   ├── zsh-fzf.md
-│   │   ├── ai.md               # Local AI: Ctrl+, / Ctrl+. / Ctrl+O, ollama-menu, opencode
+│   │   ├── ai.md               # Local AI: Ctrl+, / Ctrl+. / Ctrl+O, ai-chooser, opencode
 │   │   ├── windows-terminal.md # Windows Terminal shortcuts, wt-settings
 │   │   └── git.md
 │   ├── tmux.md                 # Full tmux key binding reference

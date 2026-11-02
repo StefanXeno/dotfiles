@@ -1,6 +1,6 @@
 # shellcheck shell=bash
 # Sourced by zsh — keep syntax bash-compatible where possible.
-# Local AI: Ollama runs on the Windows host, opencode runs in WSL (see zsh/bin/ollama-menu).
+# Local AI: Ollama runs on the Windows host, opencode runs in WSL (see zsh/bin/ai-chooser).
 
 # WSL2 NAT mode: the Windows host is the default gateway (changes after reboots).
 OLLAMA_WIN_HOST="$(ip route show default 2>/dev/null | awk '{print $3; exit}')"
@@ -41,9 +41,9 @@ opencode() {
     [[ -z "$model" ]] && model="$(jq -r '.model // empty' "$HOME/.config/opencode/opencode.json" 2>/dev/null)"
 
     # Start Ollama and preload the model only when opencode will actually use a local model.
-    if [[ "$model" == ollama/* ]] && command -v ollama-menu &>/dev/null; then
-        ollama-menu up
-        (ollama-menu load "${model#ollama/}" >/dev/null 2>&1 &)
+    if [[ "$model" == ollama/* ]] && command -v ai-chooser &>/dev/null; then
+        ai-chooser up
+        (ai-chooser load "${model#ollama/}" >/dev/null 2>&1 &)
     fi
 
     _opencode_sync_service_env
@@ -57,7 +57,7 @@ _ollama_menu_widget() {
     local cmd_file cmd
     cmd_file="$(mktemp)"
     zle -I
-    OLLAMA_MENU_CMD_FILE="$cmd_file" ollama-menu </dev/tty
+    AI_CHOOSER_CMD_FILE="$cmd_file" ai-chooser </dev/tty
     cmd="$(<"$cmd_file")"
     rm -f "$cmd_file"
     # "Start opencode" picked in the menu: run it in this shell (keeps history and wrapper).

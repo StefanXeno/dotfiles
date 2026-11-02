@@ -428,7 +428,7 @@ stow_dotfiles() {
     fi
 
     local bin_script
-    for bin_script in notify-send ollama-menu ollama-ai wt-settings claude-usage tmux-ai-status; do
+    for bin_script in notify-send ai-chooser ollama-ai wt-settings claude-usage tmux-ai-status; do
         # Only when needed: chmod fails with EPERM on files we do not own (rootless Docker maps
         # the host user to root, so the repo mount is not owned by the container user).
         if [[ -f "$DOTFILES_DIR/zsh/bin/$bin_script" && ! -x "$DOTFILES_DIR/zsh/bin/$bin_script" ]]; then
