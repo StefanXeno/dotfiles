@@ -80,11 +80,20 @@ cmd_down() {
 
 # keep_alive: 0 unloads immediately, -1 keeps the model loaded, "30m" sets a timeout.
 # An empty prompt only loads the model (or just updates keep_alive if already loaded).
+# Fails when Ollama is unreachable or answers with an error; LAST_ERROR then holds the reason
+# (for example a missing runner or too little memory) so the menu can show it.
+LAST_ERROR=""
 set_keep_alive() {
-    local keep="$2"
+    local keep="$2" resp
     [[ "$keep" =~ ^-?[0-9]+$ ]] || keep="\"$keep\""
-    curl -s -m 600 "$OLLAMA_URL/api/generate" \
-        -d "$(jq -nc --arg m "$1" --argjson k "$keep" '{model: $m, keep_alive: $k}')" >/dev/null
+    LAST_ERROR=""
+    resp="$(curl -s -m 600 "$OLLAMA_URL/api/generate" \
+        -d "$(jq -nc --arg m "$1" --argjson k "$keep" '{model: $m, keep_alive: $k}')")" || {
+        LAST_ERROR="Ollama unreachable"
+        return 1
+    }
+    LAST_ERROR="$(jq -r '.error // empty' <<<"$resp" 2>/dev/null)"
+    [[ -z "$LAST_ERROR" ]]
 }
 
 is_loaded() {
@@ -371,17 +380,17 @@ model_rows() {
 run_model_action() {
     local name="$1" action="$2" start=$SECONDS
     case "$action" in
-        on) cmd_load "$name" && echo "● $name switched on ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded" ;;
+        on) cmd_load "$name" && echo "● $name switched on ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded${LAST_ERROR:+: ${LAST_ERROR:0:120}}" ;;
         off) cmd_unload "$name" && echo "⏹ $name switched off" ;;
         restart)
             cmd_unload "$name"
-            cmd_load "$name" && echo "↻ $name restarted ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded"
+            cmd_load "$name" && echo "↻ $name restarted ($((SECONDS - start)) s)" || echo "✗ $name could not be loaded${LAST_ERROR:+: ${LAST_ERROR:0:120}}"
             ;;
         keep:*)
             if cmd_load "$name" "${action#keep:}"; then
                 [[ "${action#keep:}" == "-1" ]] && echo "∞ $name stays on until switched off" || echo "⏱ $name stays on for ${action#keep:}"
             else
-                echo "✗ $name could not be loaded"
+                echo "✗ $name could not be loaded${LAST_ERROR:+: ${LAST_ERROR:0:120}}"
             fi
             ;;
         default) cmd_default "$name" && echo "★ $name is now the opencode default" ;;
@@ -611,7 +620,7 @@ case "${1:-menu}" in
     menu) cmd_menu ;;
     up) cmd_up ;;
     down) cmd_down ;;
-    load) cmd_up && cmd_load "${2:-}" ;;
+    load) cmd_up && { cmd_load "${2:-}" || die "could not load ${2:-}: ${LAST_ERROR:-unknown error}"; } ;;
     unload) cmd_unload "${2:-}" ;;
     status)
         api_up || die "Ollama unreachable at $OLLAMA_URL"
