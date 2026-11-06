@@ -16,7 +16,7 @@ _.path = ["~/.local/bin","~/bin", "~/tools"]
 # --- Infrastructure (pinned) ---
 terraform   = "1.15.6"
 kind        = "0.32.0"
-kubectl     = "1.36.2"
+kubectl     = "1.37.2"
 helm        = "4.2.2"
 krew        = "0.5.0"
 k9s         = "0.51.0"
