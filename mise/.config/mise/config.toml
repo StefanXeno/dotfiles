@@ -43,7 +43,7 @@ eza         = "0.23.5"   # ls replacement with git/tree support (fzf previews)
 delta       = "0.20.1"   # git pager (git/.gitconfig, lazygit)
 lazygit     = "0.66.2"   # git TUI (lg)
 zoxide      = "0.10.0"   # smarter cd (z / zi)
-neovim      = "0.11.7"   # init.lua needs 0.10+ (Ubuntu 22.04 apt ships 0.6)
+neovim      = "0.12.6"   # init.lua needs 0.10+ (Ubuntu 22.04 apt ships 0.6)
 
 # --- Repo quality gates (pinned — used by pre-commit hooks and CI) ---
 gitleaks    = "8.30.1"   # secret scanner (.pre-commit-config.yaml, CI)
