@@ -14,7 +14,7 @@ _.path = ["~/.local/bin","~/bin", "~/tools"]
 
 [tools]
 # --- Infrastructure (pinned) ---
-terraform   = "1.15.6"
+terraform   = "1.17.1"
 kind        = "0.32.0"
 kubectl     = "1.36.2"
 helm        = "4.2.2"
