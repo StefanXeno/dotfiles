@@ -27,7 +27,7 @@ kubelogin   = "1.36.2"
 "github:radiusmethod/kxd" = "0.2.0"  # kubeconfig file switcher (kxd init in .zshrc)
 
 # --- Cloud (pinned) ---
-azure       = "2.87.0"
+azure       = "2.92.0"
 
 # --- Development ---
 node        = "lts"
