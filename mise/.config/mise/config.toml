@@ -34,7 +34,7 @@ node        = "lts"
 
 # --- Shell / Tools (pinned — used on every shell start) ---
 direnv      = "2.37.1"   # eval "$(direnv hook zsh)" in .zshrc
-fzf         = "0.74.0"
+fzf         = "0.75.0"
 yq          = "4.53.3"
 jq          = "1.8.1"
 usage       = "3.5.4"    # Shell completion helper for mise
